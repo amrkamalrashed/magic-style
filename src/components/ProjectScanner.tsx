@@ -185,6 +185,9 @@ export const ProjectScanner: React.FC<ProjectScannerProps> = ({
     }
 
     onStylesScanned(enhancedTokens);
+    
+    // Auto-navigate to editor after enhancement
+    // This will be handled by parent component
   };
 
   // Helper function to adjust brightness

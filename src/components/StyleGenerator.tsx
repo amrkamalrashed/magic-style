@@ -39,18 +39,25 @@ const defaultTextStyleInput: TextStyleInput = {
   baseFontSize: 16
 };
 
-const popularFonts = [
-  'Inter',
-  'Roboto',
-  'Open Sans',
-  'Poppins',
-  'Montserrat',
-  'Lato',
-  'Source Sans Pro',
-  'Nunito Sans',
-  'Merriweather',
-  'Playfair Display'
-];
+// Function to get fonts from Framer API
+const getFramerFonts = async (): Promise<string[]> => {
+  try {
+    const isFramerEnvironment = typeof window !== 'undefined' && (window as any).framer;
+    if (isFramerEnvironment && (window as any).framer.getAvailableFonts) {
+      const framerFonts = await (window as any).framer.getAvailableFonts();
+      return framerFonts.map((font: any) => font.family || font.name || font);
+    }
+  } catch (error) {
+    console.warn('Could not fetch Framer fonts:', error);
+  }
+  
+  // Fallback to popular fonts
+  return [
+    'Inter', 'Roboto', 'Open Sans', 'Poppins', 'Montserrat', 'Lato',
+    'Source Sans Pro', 'Nunito Sans', 'Merriweather', 'Playfair Display',
+    'Helvetica Neue', 'Arial', 'Times New Roman', 'Georgia', 'SF Pro Display'
+  ];
+};
 
 export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerated, onTextStylesGenerated }) => {
   const [step, setStep] = useState<'input' | 'preview' | 'customize'>(('input'));
@@ -59,6 +66,12 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
   const [textStyleInput, setTextStyleInput] = useState<TextStyleInput>(defaultTextStyleInput);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [availableFonts, setAvailableFonts] = useState<string[]>([]);
+
+  // Load fonts from Framer on component mount
+  React.useEffect(() => {
+    getFramerFonts().then(setAvailableFonts);
+  }, []);
 
   // Generate semantic color system from primary, secondary, and tertiary
   const generateColorSystem = useCallback((primary: string, secondary: string, tertiary: string): ColorToken[] => {
@@ -311,22 +324,22 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
             {/* Generation Type Selection */}
             <div>
               <Label className="text-foreground font-medium">What do you want to generate?</Label>
-              <Tabs value={generationType} onValueChange={(value: GenerationType) => setGenerationType(value)} className="mt-3">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="colors" className="gap-2">
-                    <Palette className="w-4 h-4" />
-                    Colors Only
-                  </TabsTrigger>
-                  <TabsTrigger value="text" className="gap-2">
-                    <Type className="w-4 h-4" />
-                    Text Styles Only
-                  </TabsTrigger>
-                  <TabsTrigger value="complete" className="gap-2">
-                    <Sparkles className="w-4 h-4" />
-                    Complete System
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+            <Tabs value={generationType} onValueChange={(value: GenerationType) => setGenerationType(value)} className="mt-3">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="colors" className="gap-2">
+                  <Palette className="w-4 h-4" />
+                  Color System
+                </TabsTrigger>
+                <TabsTrigger value="text" className="gap-2">
+                  <Type className="w-4 h-4" />
+                  Type System
+                </TabsTrigger>
+                <TabsTrigger value="complete" className="gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  Complete System
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
             </div>
 
             <Separator />
@@ -424,29 +437,38 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {popularFonts.map(font => (
-                            <SelectItem key={font} value={font}>{font}</SelectItem>
+                          {availableFonts.map(font => (
+                            <SelectItem key={font} value={font}>
+                              <span style={{ fontFamily: font }}>{font}</span>
+                            </SelectItem>
                           ))}
                         </SelectContent>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {availableFonts.length > 15 ? 'Loaded from Framer' : 'Using fallback fonts'}
+                        </p>
                       </Select>
                     </div>
 
                     <div>
-                      <Label htmlFor="baseFontSize" className="text-foreground">Base Font Size (Body M)</Label>
-                      <Select 
-                        value={textStyleInput.baseFontSize.toString()} 
-                        onValueChange={(value) => setTextStyleInput(prev => ({ ...prev, baseFontSize: parseInt(value) }))}
-                      >
-                        <SelectTrigger className="mt-2">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="14">14px</SelectItem>
-                          <SelectItem value="16">16px (Recommended)</SelectItem>
-                          <SelectItem value="18">18px</SelectItem>
-                          <SelectItem value="20">20px</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="baseFontSize" className="text-foreground">Base Font Size</Label>
+                      <Input
+                        id="baseFontSize"
+                        value={textStyleInput.baseFontSize.toString()}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value);
+                          if (!isNaN(value) && value >= 8 && value <= 72) {
+                            setTextStyleInput(prev => ({ ...prev, baseFontSize: value }));
+                          }
+                        }}
+                        placeholder="16"
+                        className="mt-2"
+                        type="number"
+                        min="8"
+                        max="72"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Recommended: 14-20px
+                      </p>
                     </div>
                   </div>
 

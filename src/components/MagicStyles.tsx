@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ProjectScanner } from './ProjectScanner';
 import { StyleGenerator } from './StyleGenerator';
-import IntegratedTokenPreview from './IntegratedTokenPreview';
+import DesignSystemEditor from './DesignSystemEditor';
 import { StyleExporter } from './StyleExporter';
 
 // Mock Framer API for development/testing
@@ -325,7 +325,7 @@ const MagicStyles = () => {
             )}
             
             {activeTab === 'preview' && (
-              <IntegratedTokenPreview 
+              <DesignSystemEditor 
                 tokens={tokens} 
                 textStyles={textStyles}
                 isDarkMode={isDarkMode}
