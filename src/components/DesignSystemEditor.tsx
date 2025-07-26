@@ -39,26 +39,6 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
   const [isGeneratingDarkMode, setIsGeneratingDarkMode] = useState(false);
   const [isGeneratingStates, setIsGeneratingStates] = useState(false);
 
-  const accessibilityStats = useMemo(() => {
-    const totalCombinations = tokens.length * tokens.length;
-    const passedCombinations = tokens.reduce((acc, bgToken) => {
-      return acc + tokens.filter(textToken => {
-        const bgColor = isDarkMode ? bgToken.dark : bgToken.light;
-        const textColor = isDarkMode ? textToken.dark : textToken.light;
-        return getContrastRatio(bgColor, textColor) >= 4.5;
-      }).length;
-    }, 0);
-    
-    return {
-      total: totalCombinations,
-      passed: passedCombinations,
-      failed: totalCombinations - passedCombinations,
-      percentage: totalCombinations > 0 ? Math.round((passedCombinations / totalCombinations) * 100) : 0
-    };
-  }, [tokens, isDarkMode]);
-
-  const allAccessibilityPassed = accessibilityStats.percentage === 100 && tokens.length > 0;
-
   const getContrastRatio = (color1: string, color2: string): number => {
     const hexToRgb = (hex: string) => {
       const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -88,6 +68,26 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
     
     return (brightest + 0.05) / (darkest + 0.05);
   };
+
+  const accessibilityStats = useMemo(() => {
+    const totalCombinations = tokens.length * tokens.length;
+    const passedCombinations = tokens.reduce((acc, bgToken) => {
+      return acc + tokens.filter(textToken => {
+        const bgColor = isDarkMode ? bgToken.dark : bgToken.light;
+        const textColor = isDarkMode ? textToken.dark : textToken.light;
+        return getContrastRatio(bgColor, textColor) >= 4.5;
+      }).length;
+    }, 0);
+    
+    return {
+      total: totalCombinations,
+      passed: passedCombinations,
+      failed: totalCombinations - passedCombinations,
+      percentage: totalCombinations > 0 ? Math.round((passedCombinations / totalCombinations) * 100) : 0
+    };
+  }, [tokens, isDarkMode]);
+
+  const allAccessibilityPassed = accessibilityStats.percentage === 100 && tokens.length > 0;
 
   const categories = useMemo(() => {
     const cats = Array.from(new Set(tokens.map(token => token.category).filter(Boolean)));
