@@ -42,7 +42,7 @@ export const ProjectScanner: React.FC<ProjectScannerProps> = ({
 }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
-  const [selectedEnhancements, setSelectedEnhancements] = useState<Set<string>>(new Set());
+  
 
   const categorizeStyle = (styleName: string, path: string = ''): string => {
     const fullName = `${path}/${styleName}`.toLowerCase();
@@ -117,77 +117,60 @@ export const ProjectScanner: React.FC<ProjectScannerProps> = ({
     }
   }, [isFramerReady]);
 
-  const handleEnhancementToggle = (enhancement: string) => {
-    const newSelected = new Set(selectedEnhancements);
-    if (newSelected.has(enhancement)) {
-      newSelected.delete(enhancement);
-    } else {
-      newSelected.add(enhancement);
-    }
-    setSelectedEnhancements(newSelected);
-  };
 
-  const applyEnhancements = () => {
+  // Automatically process and apply scanned styles
+  const applyScannedStyles = () => {
     if (!scanResult) return;
 
-    let enhancedTokens: ColorToken[] = scanResult.colorStyles.map(style => ({
+    // Convert scanned styles to ColorToken format and auto-apply enhancements
+    let processedTokens: ColorToken[] = scanResult.colorStyles.map(style => ({
       name: style.name,
       light: style.light || '#ffffff',
       dark: style.dark || style.light || '#ffffff',
       category: categorizeStyle(style.name, style.path)
     }));
 
-    // Apply selected enhancements
-    if (selectedEnhancements.has('accessibility')) {
-      // Apply accessibility fixes (simplified for demo)
-      enhancedTokens = enhancedTokens.map(token => ({
-        ...token,
-        // Ensure minimum contrast ratios
-        light: token.category === 'Text' ? '#1f2937' : token.light,
-        dark: token.category === 'Text' ? '#f9fafb' : token.dark
-      }));
-    }
+    // Auto-generate dark mode for missing variants
+    processedTokens = processedTokens.map(token => {
+      if (!token.dark || token.dark === token.light) {
+        return {
+          ...token,
+          dark: adjustBrightness(token.light, token.category === 'Background' ? -80 : token.category === 'Text' ? 80 : -20)
+        };
+      }
+      return token;
+    });
 
-    if (selectedEnhancements.has('darkMode')) {
-      // Generate proper dark mode variants
-      enhancedTokens = enhancedTokens.map(token => ({
-        ...token,
-        dark: token.category === 'Background' 
-          ? (token.name.toLowerCase().includes('base') ? '#111827' : '#1f2937')
-          : token.dark
-      }));
-    }
+    // Auto-generate missing interaction states for brand colors
+    const brandTokens = processedTokens.filter(t => t.category === 'Brand');
+    const stateTokens: ColorToken[] = [];
 
-    if (selectedEnhancements.has('states')) {
-      // Generate hover and pressed states for brand colors
-      const brandTokens = enhancedTokens.filter(t => t.category === 'Brand');
-      const stateTokens: ColorToken[] = [];
+    brandTokens.forEach(token => {
+      // Only add states if they don't already exist
+      const hasHover = processedTokens.some(t => t.name.toLowerCase().includes(token.name.toLowerCase()) && t.name.toLowerCase().includes('hover'));
+      const hasPressed = processedTokens.some(t => t.name.toLowerCase().includes(token.name.toLowerCase()) && (t.name.toLowerCase().includes('pressed') || t.name.toLowerCase().includes('active')));
 
-      brandTokens.forEach(token => {
-        // Generate hover state (lighter)
+      if (!hasHover) {
         stateTokens.push({
           name: `${token.name} Hover`,
-          light: adjustBrightness(token.light, 10),
-          dark: adjustBrightness(token.dark, 10),
+          light: adjustBrightness(token.light, 15),
+          dark: adjustBrightness(token.dark, 15),
           category: 'Brand'
         });
+      }
 
-        // Generate pressed state (darker)
+      if (!hasPressed) {
         stateTokens.push({
           name: `${token.name} Pressed`,
-          light: adjustBrightness(token.light, -10),
-          dark: adjustBrightness(token.dark, -10),
+          light: adjustBrightness(token.light, -15),
+          dark: adjustBrightness(token.dark, -15),
           category: 'Brand'
         });
-      });
+      }
+    });
 
-      enhancedTokens = [...enhancedTokens, ...stateTokens];
-    }
-
-    onStylesScanned(enhancedTokens);
-    
-    // Auto-navigate to editor after enhancement
-    // This will be handled by parent component
+    const finalTokens = [...processedTokens, ...stateTokens];
+    onStylesScanned(finalTokens);
   };
 
   // Helper function to adjust brightness
@@ -291,88 +274,20 @@ export const ProjectScanner: React.FC<ProjectScannerProps> = ({
             </Card>
           </div>
 
-          {/* Enhancement Options */}
+          {/* Auto-apply button - skip enhancement selection */}
           <Card className="p-6 bg-surface-elevated">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Available Enhancements</h3>
-            
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  id="accessibility"
-                  checked={selectedEnhancements.has('accessibility')}
-                  onChange={() => handleEnhancementToggle('accessibility')}
-                  className="mt-1"
-                />
-                <div className="flex-1">
-                  <label htmlFor="accessibility" className="font-medium text-foreground cursor-pointer">
-                    Make Colors Accessible
-                  </label>
-                  <p className="text-sm text-text-muted">
-                    Adjust colors to meet WCAG AA contrast standards
-                  </p>
-                </div>
-                <Badge variant="outline">Recommended</Badge>
-              </div>
-
-              <Separator />
-
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  id="darkMode"
-                  checked={selectedEnhancements.has('darkMode')}
-                  onChange={() => handleEnhancementToggle('darkMode')}
-                  className="mt-1"
-                />
-                <div className="flex-1">
-                  <label htmlFor="darkMode" className="font-medium text-foreground cursor-pointer">
-                    Generate Dark Mode
-                  </label>
-                  <p className="text-sm text-text-muted">
-                    Create proper dark mode variants following design standards
-                  </p>
-                </div>
-                {scanResult.issues.some(issue => issue.includes('dark mode')) && (
-                  <Badge variant="destructive">Needed</Badge>
-                )}
-              </div>
-
-              <Separator />
-
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  id="states"
-                  checked={selectedEnhancements.has('states')}
-                  onChange={() => handleEnhancementToggle('states')}
-                  className="mt-1"
-                />
-                <div className="flex-1">
-                  <label htmlFor="states" className="font-medium text-foreground cursor-pointer">
-                    Generate Hover & Pressed States
-                  </label>
-                  <p className="text-sm text-text-muted">
-                    Add interaction states for brand colors with proper shades
-                  </p>
-                </div>
-                {scanResult.issues.some(issue => issue.includes('hover') || issue.includes('pressed')) && (
-                  <Badge variant="destructive">Missing</Badge>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
-              <p className="text-sm text-text-muted">
-                {selectedEnhancements.size} enhancement{selectedEnhancements.size !== 1 ? 's' : ''} selected
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-foreground mb-2">Scan Complete!</h3>
+              <p className="text-text-muted mb-6">
+                Found {scanResult.colorStyles.length} color styles and {scanResult.textStyles.length} text styles. 
+                Ready to edit and enhance your design system.
               </p>
               <Button 
-                onClick={applyEnhancements}
-                disabled={selectedEnhancements.size === 0}
-                className="gap-2"
+                onClick={applyScannedStyles}
+                className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 <Sparkles className="w-4 h-4" />
-                Apply & Continue
+                Continue to Editor
               </Button>
             </div>
           </Card>

@@ -58,7 +58,7 @@ const MagicStyles = () => {
   const [tokens, setTokens] = useState<ColorToken[]>([]);
   const [textStyles, setTextStyles] = useState<TextStyle[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [activeTab, setActiveTab] = useState<'scanner' | 'generator' | 'preview'>('scanner');
+  const [activeTab, setActiveTab] = useState<'scanner' | 'generator' | 'edit'>('scanner');
   const [isFramerReady, setIsFramerReady] = useState(false);
   const [showInitialChoice, setShowInitialChoice] = useState(true);
 
@@ -99,7 +99,7 @@ const MagicStyles = () => {
       
       if (framerTokens.length > 0) {
         setTokens(framerTokens);
-        setActiveTab('preview');
+        setActiveTab('edit');
       }
     } catch (error) {
       console.error('Failed to load Framer styles:', error);
@@ -109,19 +109,19 @@ const MagicStyles = () => {
   const handleStylesScanned = useCallback((scannedTokens: ColorToken[]) => {
     setTokens(scannedTokens);
     setShowInitialChoice(false);
-    setActiveTab('preview'); // Auto-navigate to preview after scan
+    setActiveTab('edit'); // Auto-navigate to edit after scan
   }, []);
 
   const handleStylesGenerated = useCallback((generatedTokens: ColorToken[]) => {
     setTokens(generatedTokens);
     setShowInitialChoice(false);
-    setActiveTab('preview');
+    setActiveTab('edit');
   }, []);
 
   const handleTextStylesGenerated = useCallback((generatedTextStyles: TextStyle[]) => {
     setTextStyles(generatedTextStyles);
     setShowInitialChoice(false);
-    setActiveTab('preview');
+    setActiveTab('edit');
   }, []);
 
   const handleTokenUpdate = useCallback((updatedTokens: ColorToken[]) => {
@@ -225,13 +225,14 @@ const MagicStyles = () => {
       </header>
 
       {/* Navigation */}
-      {!showInitialChoice && activeTab !== 'preview' && (
+      {!showInitialChoice && (
         <nav className="border-b border-border bg-surface-elevated">
           <div className="container mx-auto px-6">
             <div className="flex gap-1 py-3">
               {[
                 { id: 'scanner', label: 'Scanner', icon: Scan },
-                { id: 'generator', label: 'Generator', icon: Plus }
+                { id: 'generator', label: 'Generator', icon: Plus },
+                ...(tokens.length > 0 || textStyles.length > 0 ? [{ id: 'edit', label: 'Edit', icon: Eye }] : [])
               ].map(({ id, label, icon: Icon }) => (
                 <Button
                   key={id}
@@ -324,7 +325,7 @@ const MagicStyles = () => {
               />
             )}
             
-            {activeTab === 'preview' && (
+            {activeTab === 'edit' && (
               <DesignSystemEditor 
                 tokens={tokens} 
                 textStyles={textStyles}
@@ -336,7 +337,7 @@ const MagicStyles = () => {
               />
             )}
             
-            {tokens.length === 0 && activeTab === 'preview' && (
+            {tokens.length === 0 && activeTab === 'edit' && (
               <Card className="p-12 text-center bg-surface-elevated border-border">
                 <Zap className="w-12 h-12 text-text-muted mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-2">No styles yet</h3>
