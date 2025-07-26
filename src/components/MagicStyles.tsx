@@ -5,8 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ProjectScanner } from './ProjectScanner';
 import { StyleGenerator } from './StyleGenerator';
-import { TokenGrid } from './TokenGrid';
-import { AccessibilityChecker } from './AccessibilityChecker';
+import IntegratedTokenPreview from './IntegratedTokenPreview';
 import { StyleExporter } from './StyleExporter';
 
 // Mock Framer API for development/testing
@@ -46,7 +45,7 @@ export interface TokenData {
 const MagicStyles = () => {
   const [tokens, setTokens] = useState<ColorToken[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [activeTab, setActiveTab] = useState<'scanner' | 'generator' | 'preview' | 'accessibility' | 'export'>('scanner');
+  const [activeTab, setActiveTab] = useState<'scanner' | 'generator' | 'preview' | 'export'>('scanner');
   const [isFramerReady, setIsFramerReady] = useState(false);
   const [showInitialChoice, setShowInitialChoice] = useState(true);
 
@@ -211,7 +210,6 @@ const MagicStyles = () => {
                 { id: 'scanner', label: 'Scanner', icon: Scan },
                 { id: 'generator', label: 'Generator', icon: Plus },
                 { id: 'preview', label: 'Preview', icon: Palette },
-                { id: 'accessibility', label: 'Accessibility', icon: Eye },
                 { id: 'export', label: 'Export', icon: Download }
               ].map(({ id, label, icon: Icon }) => (
                 <Button
@@ -303,22 +301,19 @@ const MagicStyles = () => {
             )}
             
             {activeTab === 'preview' && (
-              <TokenGrid 
+              <IntegratedTokenPreview 
                 tokens={tokens} 
                 isDarkMode={isDarkMode}
                 onTokensUpdate={handleTokenUpdate}
+                onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
               />
-            )}
-            
-            {activeTab === 'accessibility' && (
-              <AccessibilityChecker tokens={tokens} isDarkMode={isDarkMode} />
             )}
             
             {activeTab === 'export' && (
               <StyleExporter tokens={tokens} />
             )}
             
-            {tokens.length === 0 && (activeTab === 'preview' || activeTab === 'accessibility' || activeTab === 'export') && (
+            {tokens.length === 0 && (activeTab === 'preview' || activeTab === 'export') && (
               <Card className="p-12 text-center bg-surface-elevated border-border">
                 <Zap className="w-12 h-12 text-text-muted mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-2">No styles yet</h3>

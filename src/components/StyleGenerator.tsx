@@ -15,11 +15,13 @@ interface StyleGeneratorProps {
 interface ColorInput {
   primary: string;
   secondary: string;
+  tertiary: string;
 }
 
 const defaultColors: ColorInput = {
   primary: '#6366f1',
-  secondary: '#8b5cf6'
+  secondary: '#8b5cf6',
+  tertiary: '#f59e0b'
 };
 
 export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerated }) => {
@@ -28,8 +30,8 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Generate semantic color system from primary and secondary
-  const generateColorSystem = useCallback((primary: string, secondary: string): ColorToken[] => {
+  // Generate semantic color system from primary, secondary, and tertiary
+  const generateColorSystem = useCallback((primary: string, secondary: string, tertiary: string): ColorToken[] => {
     const tokens: ColorToken[] = [];
 
     // Helper function to convert hex to HSL
@@ -84,7 +86,7 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
       return hslToHex(h, s, Math.max(0, Math.min(100, l + adjustment)));
     };
 
-    // Brand Colors - Primary and Secondary with states
+    // Brand Colors - Primary, Secondary, and Tertiary with states
     tokens.push(
       // Primary
       { name: 'Primary Base', light: primary, dark: primary, category: 'Brand' },
@@ -94,7 +96,12 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
       // Secondary
       { name: 'Secondary Base', light: secondary, dark: secondary, category: 'Brand' },
       { name: 'Secondary Hover', light: adjustLightness(secondary, 10), dark: adjustLightness(secondary, 10), category: 'Brand' },
-      { name: 'Secondary Pressed', light: adjustLightness(secondary, -10), dark: adjustLightness(secondary, -10), category: 'Brand' }
+      { name: 'Secondary Pressed', light: adjustLightness(secondary, -10), dark: adjustLightness(secondary, -10), category: 'Brand' },
+      
+      // Tertiary (Accent)
+      { name: 'Tertiary Base', light: tertiary, dark: tertiary, category: 'Brand' },
+      { name: 'Tertiary Hover', light: adjustLightness(tertiary, 10), dark: adjustLightness(tertiary, 10), category: 'Brand' },
+      { name: 'Tertiary Pressed', light: adjustLightness(tertiary, -10), dark: adjustLightness(tertiary, -10), category: 'Brand' }
     );
 
     // Neutrals - White to Black scale
@@ -162,7 +169,7 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
   }, []);
 
   const generatedTokens = useMemo(() => {
-    return generateColorSystem(colors.primary, colors.secondary);
+    return generateColorSystem(colors.primary, colors.secondary, colors.tertiary);
   }, [colors, generateColorSystem]);
 
   const handleColorChange = (type: keyof ColorInput, value: string) => {
@@ -195,8 +202,12 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
     while (randomSecondary === randomPrimary) {
       randomSecondary = randomColors[Math.floor(Math.random() * randomColors.length)];
     }
+    let randomTertiary = randomColors[Math.floor(Math.random() * randomColors.length)];
+    while (randomTertiary === randomPrimary || randomTertiary === randomSecondary) {
+      randomTertiary = randomColors[Math.floor(Math.random() * randomColors.length)];
+    }
     
-    setColors({ primary: randomPrimary, secondary: randomSecondary });
+    setColors({ primary: randomPrimary, secondary: randomSecondary, tertiary: randomTertiary });
   };
 
   const getTokensByCategory = (category: string) => {
@@ -245,6 +256,23 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
                     value={colors.secondary}
                     onChange={(e) => handleColorChange('secondary', e.target.value)}
                     placeholder="#8b5cf6"
+                    className="font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="tertiary" className="text-foreground">Tertiary Color (Accent)</Label>
+                <div className="flex gap-3 mt-2">
+                  <div 
+                    className="w-12 h-12 rounded-lg border-2 border-border shadow-soft"
+                    style={{ backgroundColor: colors.tertiary }}
+                  />
+                  <Input
+                    id="tertiary"
+                    value={colors.tertiary}
+                    onChange={(e) => handleColorChange('tertiary', e.target.value)}
+                    placeholder="#f59e0b"
                     className="font-mono"
                   />
                 </div>
