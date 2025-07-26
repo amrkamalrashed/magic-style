@@ -1,10 +1,11 @@
 {
-  "id": "magic-styles",
+  "id": "mgcsty",
   "name": "Magic Styles",
   "version": "1.0.0",
   "description": "A Style Manager and Accessibility Checker for Framer projects. Import, preview, edit, and apply color tokens with built-in accessibility checks.",
   "author": "Magic Styles",
-  "main": "https://localhost:8080",
+  "main": "http://localhost:5173",
+  "modes": ["canvas"],
   "permissions": [
     "read:styles",
     "write:styles"
