@@ -6,10 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import type { ColorToken } from './MagicStyles';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { ColorToken, TextStyle } from './MagicStyles';
 
 interface StyleGeneratorProps {
   onStylesGenerated: (tokens: ColorToken[]) => void;
+  onTextStylesGenerated?: (textStyles: TextStyle[]) => void;
 }
 
 interface ColorInput {
@@ -18,15 +21,42 @@ interface ColorInput {
   tertiary: string;
 }
 
+interface TextStyleInput {
+  fontFamily: string;
+  baseFontSize: number; // in px
+}
+
+type GenerationType = 'colors' | 'text' | 'complete';
+
 const defaultColors: ColorInput = {
   primary: '#6366f1',
   secondary: '#8b5cf6',
   tertiary: '#f59e0b'
 };
 
-export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerated }) => {
+const defaultTextStyleInput: TextStyleInput = {
+  fontFamily: 'Inter',
+  baseFontSize: 16
+};
+
+const popularFonts = [
+  'Inter',
+  'Roboto',
+  'Open Sans',
+  'Poppins',
+  'Montserrat',
+  'Lato',
+  'Source Sans Pro',
+  'Nunito Sans',
+  'Merriweather',
+  'Playfair Display'
+];
+
+export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerated, onTextStylesGenerated }) => {
   const [step, setStep] = useState<'input' | 'preview' | 'customize'>(('input'));
+  const [generationType, setGenerationType] = useState<GenerationType>('complete');
   const [colors, setColors] = useState<ColorInput>(defaultColors);
+  const [textStyleInput, setTextStyleInput] = useState<TextStyleInput>(defaultTextStyleInput);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -168,9 +198,52 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
     return tokens;
   }, []);
 
+  // Generate smart text styles based on base font size and font family
+  const generateSmartTextStyles = useCallback((fontFamily: string, baseFontSize: number): TextStyle[] => {
+    const textStyles: TextStyle[] = [];
+    
+    // Smart typography scale - using mathematical relationships
+    const textStyleDefinitions = [
+      { name: 'H1', multiplier: 3, weight: 700, lineHeight: 1.1, category: 'heading' as const },
+      { name: 'H2', multiplier: 2.25, weight: 600, lineHeight: 1.15, category: 'heading' as const },
+      { name: 'H3', multiplier: 1.875, weight: 600, lineHeight: 1.2, category: 'heading' as const },
+      { name: 'H4', multiplier: 1.5, weight: 500, lineHeight: 1.2, category: 'heading' as const },
+      { name: 'H5', multiplier: 1.25, weight: 500, lineHeight: 1.2, category: 'heading' as const },
+      { name: 'H6', multiplier: 1.125, weight: 500, lineHeight: 1.2, category: 'heading' as const },
+      { name: 'Body L', multiplier: 1.125, weight: 400, lineHeight: 1.6, category: 'body' as const },
+      { name: 'Body M', multiplier: 1, weight: 400, lineHeight: 1.5, category: 'body' as const },
+      { name: 'Sub-title', multiplier: 0.875, weight: 500, lineHeight: 1.4, category: 'caption' as const },
+      { name: 'Caption', multiplier: 0.75, weight: 400, lineHeight: 1.3, category: 'caption' as const }
+    ];
+
+    textStyleDefinitions.forEach((def, index) => {
+      const fontSize = Math.round(baseFontSize * def.multiplier);
+      
+      textStyles.push({
+        id: `text-${index}`,
+        name: def.name,
+        fontFamily: fontFamily,
+        fontSize: `${fontSize}px`,
+        fontWeight: def.weight,
+        lineHeight: def.lineHeight.toString(),
+        letterSpacing: fontSize >= 24 ? '-0.02em' : '0px', // Tighter spacing for larger text
+        color: colors.primary,
+        category: def.category
+      });
+    });
+
+    return textStyles;
+  }, [colors.primary]);
+
   const generatedTokens = useMemo(() => {
+    if (generationType === 'text') return [];
     return generateColorSystem(colors.primary, colors.secondary, colors.tertiary);
-  }, [colors, generateColorSystem]);
+  }, [colors, generateColorSystem, generationType]);
+
+  const generatedTextStyles = useMemo(() => {
+    if (generationType === 'colors') return [];
+    return generateSmartTextStyles(textStyleInput.fontFamily, textStyleInput.baseFontSize);
+  }, [textStyleInput, generateSmartTextStyles, generationType]);
 
   const handleColorChange = (type: keyof ColorInput, value: string) => {
     if (/^#[0-9A-F]{6}$/i.test(value)) {
@@ -187,7 +260,12 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
   };
 
   const handleApply = () => {
-    onStylesGenerated(generatedTokens);
+    if (generationType !== 'text') {
+      onStylesGenerated(generatedTokens);
+    }
+    if (generationType !== 'colors' && onTextStylesGenerated) {
+      onTextStylesGenerated(generatedTextStyles);
+    }
   };
 
   const handleRandomize = () => {
@@ -214,93 +292,194 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
     return generatedTokens.filter(token => token.category === category);
   };
 
+  const getTextStylesByCategory = (category: string) => {
+    return generatedTextStyles.filter(style => style.category === category);
+  };
+
   if (step === 'input') {
     return (
       <div className="space-y-6">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-foreground mb-2">Generate Style System</h2>
           <p className="text-text-muted">
-            Provide your primary and secondary colors to generate a complete design system
+            Choose what to generate and configure your design system
           </p>
         </div>
 
-        <Card className="p-8 max-w-md mx-auto bg-surface-elevated">
+        <Card className="p-8 max-w-2xl mx-auto bg-surface-elevated">
           <div className="space-y-6">
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="primary" className="text-foreground">Primary Color</Label>
-                <div className="flex gap-3 mt-2">
-                  <div 
-                    className="w-12 h-12 rounded-lg border-2 border-border shadow-soft"
-                    style={{ backgroundColor: colors.primary }}
-                  />
-                  <Input
-                    id="primary"
-                    value={colors.primary}
-                    onChange={(e) => handleColorChange('primary', e.target.value)}
-                    placeholder="#6366f1"
-                    className="font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="secondary" className="text-foreground">Secondary Color</Label>
-                <div className="flex gap-3 mt-2">
-                  <div 
-                    className="w-12 h-12 rounded-lg border-2 border-border shadow-soft"
-                    style={{ backgroundColor: colors.secondary }}
-                  />
-                  <Input
-                    id="secondary"
-                    value={colors.secondary}
-                    onChange={(e) => handleColorChange('secondary', e.target.value)}
-                    placeholder="#8b5cf6"
-                    className="font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="tertiary" className="text-foreground">Tertiary Color (Accent)</Label>
-                <div className="flex gap-3 mt-2">
-                  <div 
-                    className="w-12 h-12 rounded-lg border-2 border-border shadow-soft"
-                    style={{ backgroundColor: colors.tertiary }}
-                  />
-                  <Input
-                    id="tertiary"
-                    value={colors.tertiary}
-                    onChange={(e) => handleColorChange('tertiary', e.target.value)}
-                    placeholder="#f59e0b"
-                    className="font-mono"
-                  />
-                </div>
-              </div>
+            {/* Generation Type Selection */}
+            <div>
+              <Label className="text-foreground font-medium">What do you want to generate?</Label>
+              <Tabs value={generationType} onValueChange={(value: GenerationType) => setGenerationType(value)} className="mt-3">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="colors" className="gap-2">
+                    <Palette className="w-4 h-4" />
+                    Colors Only
+                  </TabsTrigger>
+                  <TabsTrigger value="text" className="gap-2">
+                    <Type className="w-4 h-4" />
+                    Text Styles Only
+                  </TabsTrigger>
+                  <TabsTrigger value="complete" className="gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    Complete System
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
 
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={handleRandomize}
-                className="flex-1 gap-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Randomize
-              </Button>
-              <Button
-                onClick={handleGenerate}
-                disabled={isGenerating}
-                className="flex-1 gap-2"
-              >
-                {isGenerating ? (
-                  <div className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
-                ) : (
-                  <Sparkles className="w-4 h-4" />
-                )}
-                Generate
-              </Button>
-            </div>
+            <Separator />
+
+            {/* Colors Configuration */}
+            {(generationType === 'colors' || generationType === 'complete') && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <Palette className="w-5 h-5" />
+                  Color Configuration
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="primary" className="text-foreground">Primary Color</Label>
+                    <div className="flex gap-3 mt-2">
+                      <div 
+                        className="w-12 h-12 rounded-lg border-2 border-border shadow-soft"
+                        style={{ backgroundColor: colors.primary }}
+                      />
+                      <Input
+                        id="primary"
+                        value={colors.primary}
+                        onChange={(e) => handleColorChange('primary', e.target.value)}
+                        placeholder="#6366f1"
+                        className="font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="secondary" className="text-foreground">Secondary Color</Label>
+                    <div className="flex gap-3 mt-2">
+                      <div 
+                        className="w-12 h-12 rounded-lg border-2 border-border shadow-soft"
+                        style={{ backgroundColor: colors.secondary }}
+                      />
+                      <Input
+                        id="secondary"
+                        value={colors.secondary}
+                        onChange={(e) => handleColorChange('secondary', e.target.value)}
+                        placeholder="#8b5cf6"
+                        className="font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="tertiary" className="text-foreground">Tertiary Color (Accent)</Label>
+                    <div className="flex gap-3 mt-2">
+                      <div 
+                        className="w-12 h-12 rounded-lg border-2 border-border shadow-soft"
+                        style={{ backgroundColor: colors.tertiary }}
+                      />
+                      <Input
+                        id="tertiary"
+                        value={colors.tertiary}
+                        onChange={(e) => handleColorChange('tertiary', e.target.value)}
+                        placeholder="#f59e0b"
+                        className="font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  onClick={handleRandomize}
+                  className="w-full gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Randomize Colors
+                </Button>
+              </div>
+            )}
+
+            {/* Text Styles Configuration */}
+            {(generationType === 'text' || generationType === 'complete') && (
+              <>
+                {(generationType === 'complete') && <Separator />}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <Type className="w-5 h-5" />
+                    Typography Configuration
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="fontFamily" className="text-foreground">Font Family</Label>
+                      <Select 
+                        value={textStyleInput.fontFamily} 
+                        onValueChange={(value) => setTextStyleInput(prev => ({ ...prev, fontFamily: value }))}
+                      >
+                        <SelectTrigger className="mt-2">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {popularFonts.map(font => (
+                            <SelectItem key={font} value={font}>{font}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="baseFontSize" className="text-foreground">Base Font Size (Body M)</Label>
+                      <Select 
+                        value={textStyleInput.baseFontSize.toString()} 
+                        onValueChange={(value) => setTextStyleInput(prev => ({ ...prev, baseFontSize: parseInt(value) }))}
+                      >
+                        <SelectTrigger className="mt-2">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="14">14px</SelectItem>
+                          <SelectItem value="16">16px (Recommended)</SelectItem>
+                          <SelectItem value="18">18px</SelectItem>
+                          <SelectItem value="20">20px</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-background/50 rounded-lg border border-border">
+                    <p className="text-sm text-text-muted mb-2">Typography Preview:</p>
+                    <div className="space-y-1">
+                      <div style={{ fontFamily: textStyleInput.fontFamily, fontSize: `${textStyleInput.baseFontSize * 3}px`, fontWeight: 700, lineHeight: 1.1 }}>
+                        H1 Heading ({textStyleInput.baseFontSize * 3}px)
+                      </div>
+                      <div style={{ fontFamily: textStyleInput.fontFamily, fontSize: `${textStyleInput.baseFontSize}px`, fontWeight: 400, lineHeight: 1.5 }}>
+                        Body M Text ({textStyleInput.baseFontSize}px)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <Separator />
+
+            <Button
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              className="w-full gap-2"
+              size="lg"
+            >
+              {isGenerating ? (
+                <div className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+              Generate {generationType === 'colors' ? 'Color System' : generationType === 'text' ? 'Text Styles' : 'Complete System'}
+            </Button>
           </div>
         </Card>
       </div>
@@ -308,25 +487,29 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
   }
 
   if (step === 'preview') {
+    const totalItems = generatedTokens.length + generatedTextStyles.length;
+    
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-foreground">Generated Style System</h2>
             <p className="text-text-muted">
-              {generatedTokens.length} tokens generated • Review and apply when ready
+              {totalItems} items generated • Review and apply when ready
             </p>
           </div>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className="gap-2"
-            >
-              {isDarkMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              {isDarkMode ? 'Light' : 'Dark'} Preview
-            </Button>
+            {generatedTokens.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className="gap-2"
+              >
+                {isDarkMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {isDarkMode ? 'Light' : 'Dark'} Preview
+              </Button>
+            )}
             <Button onClick={handleApply} className="gap-2">
               <ChevronRight className="w-4 h-4" />
               Apply System
@@ -334,79 +517,171 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
           </div>
         </div>
 
-        {/* Token Categories */}
-        <div className="space-y-6">
-          {['Brand', 'Neutral', 'Semantic', 'Text', 'Background'].map(category => {
-            const categoryTokens = getTokensByCategory(category);
-            if (categoryTokens.length === 0) return null;
+        <Tabs defaultValue={generationType === 'text' ? 'text' : 'colors'} className="w-full">
+          <TabsList>
+            {generatedTokens.length > 0 && <TabsTrigger value="colors">Colors</TabsTrigger>}
+            {generatedTextStyles.length > 0 && <TabsTrigger value="text">Text Styles</TabsTrigger>}
+          </TabsList>
 
-            return (
-              <Card key={category} className="p-6 bg-surface-elevated">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                    {category === 'Brand' && <Sparkles className="w-4 h-4 text-primary" />}
-                    {category === 'Text' && <Type className="w-4 h-4 text-primary" />}
-                    {category !== 'Brand' && category !== 'Text' && <Palette className="w-4 h-4 text-primary" />}
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground">{category}</h3>
-                  <Badge variant="outline">{categoryTokens.length} tokens</Badge>
-                </div>
+          {/* Color Tokens */}
+          {generatedTokens.length > 0 && (
+            <TabsContent value="colors" className="space-y-6">
+              {['Brand', 'Neutral', 'Semantic', 'Text', 'Background'].map(category => {
+                const categoryTokens = getTokensByCategory(category);
+                if (categoryTokens.length === 0) return null;
 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {categoryTokens.map((token, index) => (
-                    <div key={index} className="space-y-2">
-                      <div 
-                        className="w-full h-16 rounded-lg border border-border shadow-soft"
-                        style={{ backgroundColor: isDarkMode ? token.dark : token.light }}
-                      />
-                      <div>
-                        <p className="text-sm font-medium text-foreground truncate">{token.name}</p>
-                        <p className="text-xs text-text-muted font-mono">
-                          {isDarkMode ? token.dark : token.light}
-                        </p>
+                return (
+                  <Card key={category} className="p-6 bg-surface-elevated">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        {category === 'Brand' && <Sparkles className="w-4 h-4 text-primary" />}
+                        {category === 'Text' && <Type className="w-4 h-4 text-primary" />}
+                        {category !== 'Brand' && category !== 'Text' && <Palette className="w-4 h-4 text-primary" />}
                       </div>
+                      <h3 className="text-lg font-semibold text-foreground">{category}</h3>
+                      <Badge variant="outline">{categoryTokens.length} tokens</Badge>
                     </div>
-                  ))}
-                </div>
-              </Card>
-            );
-          })}
-        </div>
 
-        {/* Features Preview */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {categoryTokens.map((token, index) => (
+                        <div key={index} className="space-y-2">
+                          <div 
+                            className="w-full h-16 rounded-lg border border-border shadow-soft"
+                            style={{ backgroundColor: isDarkMode ? token.dark : token.light }}
+                          />
+                          <div>
+                            <p className="text-sm font-medium text-foreground truncate">{token.name}</p>
+                            <p className="text-xs text-text-muted font-mono">
+                              {isDarkMode ? token.dark : token.light}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                );
+              })}
+            </TabsContent>
+          )}
+
+          {/* Text Styles */}
+          {generatedTextStyles.length > 0 && (
+            <TabsContent value="text" className="space-y-6">
+              {['heading', 'body', 'caption'].map(category => {
+                const categoryStyles = getTextStylesByCategory(category);
+                if (categoryStyles.length === 0) return null;
+
+                return (
+                  <Card key={category} className="p-6 bg-surface-elevated">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Type className="w-4 h-4 text-primary" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-foreground capitalize">{category}s</h3>
+                      <Badge variant="outline">{categoryStyles.length} styles</Badge>
+                    </div>
+
+                    <div className="space-y-4">
+                      {categoryStyles.map((style) => (
+                        <div key={style.id} className="p-4 border border-border rounded-lg bg-background/50">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-medium text-foreground">{style.name}</h4>
+                            <Badge variant="outline" className="text-xs">
+                              {style.fontSize} • {style.fontWeight} • {style.lineHeight}
+                            </Badge>
+                          </div>
+                          <div 
+                            className="mb-2"
+                            style={{
+                              fontFamily: style.fontFamily,
+                              fontSize: style.fontSize,
+                              fontWeight: style.fontWeight,
+                              lineHeight: style.lineHeight,
+                              letterSpacing: style.letterSpacing,
+                              color: style.color
+                            }}
+                          >
+                            The quick brown fox jumps over the lazy dog
+                          </div>
+                          <p className="text-xs text-text-muted">
+                            {style.fontFamily} • {style.fontSize} • Weight {style.fontWeight} • Line Height {style.lineHeight}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                );
+              })}
+            </TabsContent>
+          )}
+        </Tabs>
+
+        {/* System Features */}
         <Card className="p-6 bg-surface-elevated border-accent/20">
           <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-accent" />
-            System Features
+            Smart Generation Features
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <ul className="space-y-2">
-              <li className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-success" />
-                Hover & pressed states for brand colors
-              </li>
-              <li className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-success" />
-                Complete neutral scale (50-900)
-              </li>
-              <li className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-success" />
-                Semantic colors with states
-              </li>
+              {generatedTokens.length > 0 && (
+                <>
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-success" />
+                    Hover & pressed states for brand colors
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-success" />
+                    Complete neutral scale (50-1000)
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-success" />
+                    Semantic colors with states
+                  </li>
+                </>
+              )}
+              {generatedTextStyles.length > 0 && (
+                <>
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-success" />
+                    Mathematical type scale (H1-H6, Body L/M)
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-success" />
+                    Optimized line heights (1.1-1.2 headings, 1.5-1.6 body)
+                  </li>
+                </>
+              )}
             </ul>
             <ul className="space-y-2">
-              <li className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-success" />
-                Text hierarchy system
-              </li>
-              <li className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-success" />
-                Background surface system
-              </li>
-              <li className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-success" />
-                WCAG AA compliant contrast
-              </li>
+              {generatedTokens.length > 0 && (
+                <>
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-success" />
+                    Text hierarchy system
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-success" />
+                    Background surface system
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-success" />
+                    WCAG AA compliant contrast
+                  </li>
+                </>
+              )}
+              {generatedTextStyles.length > 0 && (
+                <>
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-success" />
+                    Smart letter spacing for readability
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-success" />
+                    Professional typography hierarchy
+                  </li>
+                </>
+              )}
             </ul>
           </div>
         </Card>

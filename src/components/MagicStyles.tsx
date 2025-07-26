@@ -118,6 +118,12 @@ const MagicStyles = () => {
     setActiveTab('preview');
   }, []);
 
+  const handleTextStylesGenerated = useCallback((generatedTextStyles: TextStyle[]) => {
+    setTextStyles(generatedTextStyles);
+    setShowInitialChoice(false);
+    setActiveTab('preview');
+  }, []);
+
   const handleTokenUpdate = useCallback((updatedTokens: ColorToken[]) => {
     setTokens(updatedTokens);
   }, []);
@@ -312,7 +318,10 @@ const MagicStyles = () => {
             )}
             
             {activeTab === 'generator' && (
-              <StyleGenerator onStylesGenerated={handleStylesGenerated} />
+              <StyleGenerator 
+                onStylesGenerated={handleStylesGenerated} 
+                onTextStylesGenerated={handleTextStylesGenerated} 
+              />
             )}
             
             {activeTab === 'preview' && (
