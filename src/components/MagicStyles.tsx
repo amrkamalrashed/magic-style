@@ -16,10 +16,22 @@ export interface ColorToken {
 }
 
 export interface TokenData {
-  [key: string]: {
+  colors?: Array<{
+    id: string;
+    name: string;
     light: string;
-    dark: string;
-  };
+    dark: string | null;
+    path: string;
+  }>;
+  text?: Array<{
+    id: string;
+    name: string;
+    path: string;
+    color: string;
+    [key: string]: any;
+  }>;
+  // Legacy format support
+  [key: string]: any;
 }
 
 const MagicStyles = () => {

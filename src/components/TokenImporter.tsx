@@ -17,8 +17,33 @@ export const TokenImporter: React.FC<TokenImporterProps> = ({ onTokensImported }
   const parseTokenData = (data: TokenData): ColorToken[] => {
     const tokens: ColorToken[] = [];
     
+    // Handle new structure with colors array
+    if (data.colors && Array.isArray(data.colors)) {
+      data.colors.forEach((colorToken) => {
+        if (colorToken.light && colorToken.dark !== null) {
+          // Categorize tokens based on path
+          let category = 'Other';
+          const path = colorToken.path.toLowerCase();
+          if (path.includes('text') || path.includes('icon')) category = 'Text';
+          else if (path.includes('bg') || path.includes('background') || path.includes('surface')) category = 'Backgrounds';
+          else if (path.includes('border') || path.includes('divider')) category = 'Borders';
+          else if (path.includes('brand') || path.includes('primary') || path.includes('secondary') || path.includes('accent')) category = 'Brand';
+          else if (path.includes('semantic') || path.includes('success') || path.includes('error') || path.includes('warning') || path.includes('info')) category = 'Semantic';
+          else if (path.includes('neutral')) category = 'Neutral';
+          
+          tokens.push({
+            name: colorToken.name,
+            light: colorToken.light,
+            dark: colorToken.dark || colorToken.light,
+            category
+          });
+        }
+      });
+    }
+    
+    // Handle legacy format (fallback)
     Object.entries(data).forEach(([name, values]) => {
-      if (values && typeof values === 'object' && values.light && values.dark) {
+      if (values && typeof values === 'object' && values.light && values.dark && name !== 'colors' && name !== 'text') {
         // Categorize tokens based on naming patterns
         let category = 'Other';
         if (name.includes('text') || name.includes('foreground')) category = 'Text';
@@ -48,7 +73,7 @@ export const TokenImporter: React.FC<TokenImporterProps> = ({ onTokensImported }
       const tokens = parseTokenData(data);
       
       if (tokens.length === 0) {
-        throw new Error('No valid color tokens found. Expected format: { "token-name": { "light": "#hex", "dark": "#hex" } }');
+        throw new Error('No valid color tokens found. Please check the JSON format examples below.');
       }
       
       onTokensImported(tokens);
@@ -180,13 +205,43 @@ export const TokenImporter: React.FC<TokenImporterProps> = ({ onTokensImported }
         </Button>
       </div>
 
-      {/* Format Example */}
-      <Card className="p-6 bg-surface-elevated border-border">
-        <div className="flex items-start gap-3">
-          <FileText className="w-5 h-5 text-accent mt-1" />
-          <div>
-            <h4 className="font-medium text-foreground mb-2">Expected JSON Format</h4>
-            <pre className="text-sm bg-background p-3 rounded-lg border border-border overflow-x-auto">
+      {/* Format Examples */}
+      <div className="space-y-4">
+        <Card className="p-6 bg-surface-elevated border-border">
+          <div className="flex items-start gap-3">
+            <FileText className="w-5 h-5 text-accent mt-1" />
+            <div className="w-full">
+              <h4 className="font-medium text-foreground mb-2">Framer Token Format (Recommended)</h4>
+              <pre className="text-sm bg-background p-3 rounded-lg border border-border overflow-x-auto">
+{`{
+  "colors": [
+    {
+      "id": "primary-id",
+      "name": "Primary",
+      "light": "rgb(168, 255, 214)",
+      "dark": "rgb(168, 255, 214)",
+      "path": "/Brand/Primary"
+    },
+    {
+      "id": "text-body-id",
+      "name": "Body",
+      "light": "rgb(0, 0, 0)",
+      "dark": "rgb(255, 255, 255)",
+      "path": "/Text & Icons/Body"
+    }
+  ]
+}`}
+              </pre>
+            </div>
+          </div>
+        </Card>
+        
+        <Card className="p-6 bg-surface-elevated border-border">
+          <div className="flex items-start gap-3">
+            <FileText className="w-5 h-5 text-accent mt-1" />
+            <div className="w-full">
+              <h4 className="font-medium text-foreground mb-2">Legacy Format (Also Supported)</h4>
+              <pre className="text-sm bg-background p-3 rounded-lg border border-border overflow-x-auto">
 {`{
   "primary": {
     "light": "#6366f1",
@@ -195,16 +250,13 @@ export const TokenImporter: React.FC<TokenImporterProps> = ({ onTokensImported }
   "text-body": {
     "light": "#1f2937",
     "dark": "#f9fafb"
-  },
-  "bg-surface": {
-    "light": "#ffffff",
-    "dark": "#111827"
   }
 }`}
-            </pre>
+              </pre>
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };
