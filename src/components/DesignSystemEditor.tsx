@@ -6,11 +6,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, CheckCircle, Palette, Eye, EyeOff, Wand2, Copy, Type, Sparkles, Shield, Zap, Plus, Settings } from 'lucide-react';
+import { AlertCircle, CheckCircle, Palette, Wand2, Copy, Type, Sparkles, Shield, Zap, Plus, Settings } from 'lucide-react';
 import { ColorToken, TextStyle } from './MagicStyles';
 import { AccessibilityIndicator } from './AccessibilityIndicator';
 import { ViewToggle, ViewMode } from './ViewToggle';
 import TextStyleManager from './TextStyleManager';
+import SmartStyleGenerator from './SmartStyleGenerator';
 import { toast } from 'sonner';
 
 interface DesignSystemEditorProps {
@@ -422,7 +423,7 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
             {isGeneratingDarkMode ? (
               <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
             ) : (
-              <Eye className="w-4 h-4" />
+              <Palette className="w-4 h-4" />
             )}
             Generate Dark Mode
           </Button>
@@ -480,10 +481,6 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
                 currentView={viewMode}
                 onViewChange={setViewMode}
               />
-              <Button onClick={onToggleDarkMode} variant="outline" size="sm" className="gap-2">
-                {isDarkMode ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                {isDarkMode ? 'Light' : 'Dark'}
-              </Button>
             </div>
           )}
 
@@ -501,56 +498,53 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
           )}
         </div>
 
-        <TabsContent value="colors" className="space-y-4">
-          {/* Token Grid */}
-          <div className={`
-            ${viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 
-              'space-y-2'}
-          `}>
-            {filteredTokens.map((token) => (
-              <TokenCard
-                key={`${token.name}-${token.category}`}
-                token={token}
-                isDarkMode={isDarkMode}
-                viewMode={viewMode}
-                onCategoryChange={handleCategoryChange}
-                categories={categories}
-              />
-            ))}
-          </div>
+        <TabsContent value="colors" className="space-y-6">
+          {/* Smart Generation Component */}
+          <SmartStyleGenerator
+            tokens={tokens}
+            textStyles={textStyles}
+            onTokensUpdate={onTokensUpdate}
+            onTextStylesUpdate={onTextStylesUpdate}
+          />
 
-          {filteredTokens.length === 0 && (
-            <Card className="p-12 text-center bg-surface-elevated">
-              <Palette className="w-12 h-12 text-text-muted mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">No tokens found</h3>
+          {filteredTokens.length === 0 ? (
+            <Card className="p-8 text-center bg-surface-elevated">
+              <Palette className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">No Color Tokens</h3>
               <p className="text-text-muted">
-                {selectedCategory === 'all' 
-                  ? 'No color tokens available in this view'
-                  : `No tokens found in "${selectedCategory}" category`
-                }
+                Use the smart generation above to create missing color styles.
               </p>
             </Card>
+          ) : (
+            <div className={`
+              ${viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 
+                'space-y-2'}
+            `}>
+              {filteredTokens.map((token) => (
+                <TokenCard
+                  key={`${token.name}-${token.category}`}
+                  token={token}
+                  isDarkMode={isDarkMode}
+                  viewMode={viewMode}
+                  onCategoryChange={handleCategoryChange}
+                  categories={categories}
+                />
+              ))}
+            </div>
           )}
         </TabsContent>
 
-        <TabsContent value="text">
+        <TabsContent value="text" className="space-y-6">
           {textStyles.length === 0 ? (
-            <Card className="p-12 text-center bg-surface-elevated">
-              <Type className="w-12 h-12 text-text-muted mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">No text styles found</h3>
+            <Card className="p-8 text-center bg-surface-elevated">
+              <Type className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">No Text Styles</h3>
               <p className="text-text-muted mb-6">
-                Generate a text system to start working with typography
+                Use the smart generation in the Colors tab to create a complete text system.
               </p>
-              <Button onClick={() => {
-                // Navigate to generator and set to text mode
-                window.dispatchEvent(new CustomEvent('generate-text-system'));
-              }} className="gap-2">
-                <Plus className="w-4 h-4" />
-                Generate Text System
-              </Button>
             </Card>
           ) : (
-            <EnhancedTextStyleManager
+            <EnhancedTextStyleManager 
               textStyles={textStyles}
               onTextStylesUpdate={onTextStylesUpdate}
               onApplyToFramer={onApplyToFramer}
