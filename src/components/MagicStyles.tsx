@@ -1,8 +1,9 @@
-import React, { useState, useCallback } from 'react';
-import { Upload, Download, Palette, Eye, EyeOff, Zap } from 'lucide-react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Upload, Download, Palette, Eye, EyeOff, Zap, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { framer } from 'framer-plugin';
 import { TokenImporter } from './TokenImporter';
 import { TokenGrid } from './TokenGrid';
 import { AccessibilityChecker } from './AccessibilityChecker';
@@ -38,6 +39,39 @@ const MagicStyles = () => {
   const [tokens, setTokens] = useState<ColorToken[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [activeTab, setActiveTab] = useState<'import' | 'preview' | 'accessibility' | 'export'>('import');
+  const [isFramerReady, setIsFramerReady] = useState(false);
+
+  useEffect(() => {
+    // Initialize Framer plugin and show UI
+    framer.showUI({
+      position: 'center',
+      width: 400,
+      height: 600
+    });
+    setIsFramerReady(true);
+
+    // Load existing color styles from Framer
+    loadFramerStyles();
+  }, []);
+
+  const loadFramerStyles = async () => {
+    try {
+      const colorStyles = await framer.getColorStyles();
+      const framerTokens: ColorToken[] = colorStyles.map(style => ({
+        name: style.name,
+        light: style.light || '#ffffff',
+        dark: style.dark || style.light || '#ffffff',
+        category: style.name.includes('/') ? style.name.split('/')[0] : 'Colors'
+      }));
+      
+      if (framerTokens.length > 0) {
+        setTokens(framerTokens);
+        setActiveTab('preview');
+      }
+    } catch (error) {
+      console.error('Failed to load Framer styles:', error);
+    }
+  };
 
   const handleTokensImported = useCallback((importedTokens: ColorToken[]) => {
     setTokens(importedTokens);
@@ -47,6 +81,43 @@ const MagicStyles = () => {
   const handleTokenUpdate = useCallback((updatedTokens: ColorToken[]) => {
     setTokens(updatedTokens);
   }, []);
+
+  const applyStylesToFramer = async () => {
+    if (!isFramerReady || tokens.length === 0) return;
+
+    try {
+      // Get existing color styles
+      const existingStyles = await framer.getColorStyles();
+      const existingStyleNames = new Set(existingStyles.map(s => s.name));
+
+      // Create new styles for tokens that don't exist
+      for (const token of tokens) {
+        const styleName = token.category ? `${token.category}/${token.name}` : token.name;
+        
+        if (!existingStyleNames.has(styleName)) {
+          await framer.createColorStyle({
+            name: styleName,
+            light: token.light,
+            dark: token.dark
+          });
+        } else {
+          // Update existing style
+          const existingStyle = existingStyles.find(s => s.name === styleName);
+          if (existingStyle) {
+            await existingStyle.setAttributes({
+              light: token.light,
+              dark: token.dark
+            });
+          }
+        }
+      }
+
+      framer.notify('✨ Successfully applied styles to Framer project!', { variant: 'success' });
+    } catch (error) {
+      console.error('Failed to apply styles:', error);
+      framer.notify('Failed to apply styles to Framer', { variant: 'error' });
+    }
+  };
 
   const getTotalTokens = () => tokens.length;
   const getAccessibilityStats = () => {
@@ -66,7 +137,7 @@ const MagicStyles = () => {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-foreground">Magic Styles</h1>
-                <p className="text-sm text-text-muted">Style Manager & Accessibility Checker</p>
+                <p className="text-sm text-text-muted">Framer Style Manager</p>
               </div>
             </div>
             
@@ -74,6 +145,17 @@ const MagicStyles = () => {
               <Badge variant="outline" className="bg-surface-elevated">
                 {getTotalTokens()} tokens
               </Badge>
+              {tokens.length > 0 && (
+                <Button
+                  onClick={applyStylesToFramer}
+                  size="sm"
+                  className="gap-2"
+                  disabled={!isFramerReady}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Apply to Framer
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"

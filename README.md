@@ -1,73 +1,65 @@
-# Welcome to your Lovable project
+# Magic Styles - Framer Plugin
 
-## Project info
+A powerful Framer plugin for managing color tokens and checking accessibility. Import, preview, edit, and apply design tokens directly to your Framer projects.
 
-**URL**: https://lovable.dev/projects/bf84126f-2ab4-46ce-b3ee-59c007adaf00
+## Features
 
-## How can I edit this code?
+🎨 **Token Management**: Import JSON color tokens and preview them visually
+🔍 **Accessibility Checker**: WCAG contrast ratio validation  
+✨ **Framer Integration**: Apply styles directly to your Framer project
+🌗 **Light/Dark Mode**: Support for dual-theme design tokens
+📤 **Multi-format Export**: Export to CSS, Tailwind, SCSS, and more
 
-There are several ways of editing your application.
+## Development
 
-**Use Lovable**
+### Prerequisites
+- Node.js 18+
+- Framer Desktop app
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/bf84126f-2ab4-46ce-b3ee-59c007adaf00) and start prompting.
+### Setup
+1. Clone this repository
+2. Install dependencies: `npm install`
+3. Start development server: `npm run dev`
+4. In Framer, go to Plugins → Development → Load Plugin from URL
+5. Enter: `http://localhost:4321`
 
-Changes made via Lovable will be committed automatically to this repo.
+### Building for Production
+1. Run `npm run build`
+2. Upload the built files to your hosting provider
+3. Update the `main` URL in `manifest.json`
 
-**Use your preferred IDE**
+## JSON Token Format
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```json
+{
+  "colors": [
+    {
+      "id": "unique-id",
+      "name": "Primary",
+      "light": "rgb(168, 255, 214)",
+      "dark": "rgb(168, 255, 214)", 
+      "path": "/Brand/Primary"
+    }
+  ]
+}
 ```
 
-**Edit a file directly in GitHub**
+## Usage
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+1. **Import**: Upload your JSON token file or load existing Framer styles
+2. **Preview**: View all tokens in an organized grid with live preview
+3. **Check**: Validate accessibility with automatic contrast ratio checking
+4. **Apply**: Push tokens directly to your Framer project as Color Styles
+5. **Export**: Export to various formats (CSS, Tailwind, SCSS, etc.)
 
-**Use GitHub Codespaces**
+## Plugin Structure
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- `manifest.json` - Plugin configuration and permissions
+- `src/` - React application source code
+- `dist/` - Built plugin files
 
-## What technologies are used for this project?
+## Permissions
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/bf84126f-2ab4-46ce-b3ee-59c007adaf00) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+This plugin requires:
+- `read:styles` - To load existing Color Styles from your project  
+- `write:styles` - To create and update Color Styles in your project
