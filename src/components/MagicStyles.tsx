@@ -124,6 +124,26 @@ const MagicStyles = () => {
     setActiveTab('edit');
   }, []);
 
+  // Listen for custom events to navigate to edit mode
+  useEffect(() => {
+    const handleNavigateToEdit = () => {
+      setActiveTab('edit');
+    };
+
+    const handleGenerateTextSystem = () => {
+      setActiveTab('generator');
+      // Set generator to text mode if needed
+    };
+
+    window.addEventListener('navigate-to-edit', handleNavigateToEdit);
+    window.addEventListener('generate-text-system', handleGenerateTextSystem);
+
+    return () => {
+      window.removeEventListener('navigate-to-edit', handleNavigateToEdit);
+      window.removeEventListener('generate-text-system', handleGenerateTextSystem);
+    };
+  }, []);
+
   const handleTokenUpdate = useCallback((updatedTokens: ColorToken[]) => {
     setTokens(updatedTokens);
   }, []);

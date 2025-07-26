@@ -240,7 +240,7 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
         fontWeight: def.weight,
         lineHeight: def.lineHeight.toString(),
         letterSpacing: fontSize >= 24 ? '-0.02em' : '0px', // Tighter spacing for larger text
-        color: colors.primary,
+        color: '#1f2937', // Use Text Main color instead of primary
         category: def.category
       });
     });
@@ -279,6 +279,10 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
     if (generationType !== 'colors' && onTextStylesGenerated) {
       onTextStylesGenerated(generatedTextStyles);
     }
+    // Auto-navigate to edit mode after generation
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('navigate-to-edit'));
+    }, 100);
   };
 
   const handleRandomize = () => {

@@ -70,14 +70,18 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
   };
 
   const accessibilityStats = useMemo(() => {
-    const totalCombinations = tokens.length * tokens.length;
-    const passedCombinations = tokens.reduce((acc, bgToken) => {
-      return acc + tokens.filter(textToken => {
-        const bgColor = isDarkMode ? bgToken.dark : bgToken.light;
-        const textColor = isDarkMode ? textToken.dark : textToken.light;
-        return getContrastRatio(bgColor, textColor) >= 4.5;
-      }).length;
-    }, 0);
+    // Find Text Main token for accessibility checks
+    const textMainToken = tokens.find(token => token.name === 'Text Main');
+    if (!textMainToken) return { total: 0, passed: 0, failed: 0, percentage: 0 };
+
+    const backgroundTokens = tokens.filter(token => token.category === 'Background');
+    const totalCombinations = backgroundTokens.length;
+    
+    const passedCombinations = backgroundTokens.filter(bgToken => {
+      const bgColor = isDarkMode ? bgToken.dark : bgToken.light;
+      const textColor = isDarkMode ? textMainToken.dark : textMainToken.light;
+      return getContrastRatio(bgColor, textColor) >= 4.5;
+    }).length;
     
     return {
       total: totalCombinations,
@@ -85,7 +89,7 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
       failed: totalCombinations - passedCombinations,
       percentage: totalCombinations > 0 ? Math.round((passedCombinations / totalCombinations) * 100) : 0
     };
-  }, [tokens, isDarkMode]);
+  }, [tokens, isDarkMode, getContrastRatio]);
 
   const allAccessibilityPassed = accessibilityStats.percentage === 100 && tokens.length > 0;
 
@@ -115,21 +119,75 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
     // Simulate fixing accessibility issues
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    // Auto-fix low contrast tokens
+    // Find Text Main token
+    const textMainToken = tokens.find(token => token.name === 'Text Main');
+    if (!textMainToken) {
+      toast.error('Text Main token not found. Cannot fix accessibility.');
+      setIsFixingAccessibility(false);
+      return;
+    }
+
+    const adjustColorForContrast = (bgColor: string, textColor: string, targetRatio: number = 4.5): string => {
+      let adjustedColor = textColor;
+      let attempts = 0;
+      const maxAttempts = 20;
+      
+      while (getContrastRatio(bgColor, adjustedColor) < targetRatio && attempts < maxAttempts) {
+        const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(adjustedColor);
+        if (!rgb) break;
+        
+        const r = parseInt(rgb[1], 16);
+        const g = parseInt(rgb[2], 16);
+        const b = parseInt(rgb[3], 16);
+        
+        // Make darker for better contrast
+        const factor = 0.9;
+        const newR = Math.floor(r * factor);
+        const newG = Math.floor(g * factor);
+        const newB = Math.floor(b * factor);
+        
+        adjustedColor = '#' + [newR, newG, newB].map(x => 
+          Math.max(0, x).toString(16).padStart(2, '0')
+        ).join('');
+        
+        attempts++;
+      }
+      
+      return adjustedColor;
+    };
+    
+    // Fix background tokens that don't meet contrast with Text Main
     const fixedTokens = tokens.map(token => {
-      if (token.category === 'Text') {
-        return {
-          ...token,
-          light: '#1f2937', // Ensure dark text for light mode
-          dark: '#f9fafb'   // Ensure light text for dark mode
-        };
+      if (token.category === 'Background') {
+        const lightTextColor = textMainToken.light;
+        const darkTextColor = textMainToken.dark;
+        
+        const lightContrast = getContrastRatio(token.light, lightTextColor);
+        const darkContrast = getContrastRatio(token.dark, darkTextColor);
+        
+        let updatedToken = { ...token };
+        
+        if (lightContrast < 4.5) {
+          // Adjust background color for better contrast
+          updatedToken.light = adjustColorForContrast(token.light, lightTextColor) === lightTextColor 
+            ? adjustBrightness(token.light, lightTextColor === '#1f2937' ? 30 : -30)
+            : token.light;
+        }
+        
+        if (darkContrast < 4.5) {
+          updatedToken.dark = adjustColorForContrast(token.dark, darkTextColor) === darkTextColor
+            ? adjustBrightness(token.dark, darkTextColor === '#f9fafb' ? -30 : 30)
+            : token.dark;
+        }
+        
+        return updatedToken;
       }
       return token;
     });
     
     onTokensUpdate(fixedTokens);
     setIsFixingAccessibility(false);
-    toast.success('Accessibility issues fixed automatically');
+    toast.success('Background colors fixed for Text Main contrast');
   };
 
   const generateDarkMode = async () => {
@@ -138,7 +196,23 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
     // Simulate dark mode generation
     await new Promise(resolve => setTimeout(resolve, 1500));
     
+    // Check which tokens need dark mode variants
+    const tokensNeedingDarkMode = tokens.filter(token => {
+      return token.light === token.dark || !token.dark || token.dark === '#ffffff';
+    });
+
+    if (tokensNeedingDarkMode.length === 0) {
+      toast.info('All tokens already have proper dark mode variants');
+      setIsGeneratingDarkMode(false);
+      return;
+    }
+    
     const enhancedTokens = tokens.map(token => {
+      // Skip if already has a proper dark variant
+      if (token.light !== token.dark && token.dark && token.dark !== '#ffffff') {
+        return token;
+      }
+
       if (token.category === 'Background') {
         return {
           ...token,
@@ -151,12 +225,22 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
           dark: '#f9fafb'
         };
       }
-      return token;
+      if (token.category === 'Brand' || token.category === 'Semantic') {
+        // Keep brand colors the same in dark mode
+        return {
+          ...token,
+          dark: token.light
+        };
+      }
+      return {
+        ...token,
+        dark: adjustBrightness(token.light, -40)
+      };
     });
     
     onTokensUpdate(enhancedTokens);
     setIsGeneratingDarkMode(false);
-    toast.success('Dark mode variants generated');
+    toast.success(`Generated dark mode for ${tokensNeedingDarkMode.length} tokens`);
   };
 
   const generateStates = async () => {
@@ -166,29 +250,38 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
     await new Promise(resolve => setTimeout(resolve, 1500));
     
     const brandTokens = tokens.filter(t => t.category === 'Brand');
+    const existingStateNames = new Set(tokens.map(t => t.name));
     const stateTokens: ColorToken[] = [];
 
     brandTokens.forEach(token => {
       if (!token.name.includes('Hover') && !token.name.includes('Pressed')) {
-        stateTokens.push({
-          name: `${token.name} Hover`,
-          light: adjustBrightness(token.light, 10),
-          dark: adjustBrightness(token.dark, 10),
-          category: 'Brand'
-        });
+        const hoverName = `${token.name} Hover`;
+        const pressedName = `${token.name} Pressed`;
 
-        stateTokens.push({
-          name: `${token.name} Pressed`,
-          light: adjustBrightness(token.light, -10),
-          dark: adjustBrightness(token.dark, -10),
-          category: 'Brand'
-        });
+        // Only create if they don't already exist
+        if (!existingStateNames.has(hoverName)) {
+          stateTokens.push({
+            name: hoverName,
+            light: adjustBrightness(token.light, 10),
+            dark: adjustBrightness(token.dark, 10),
+            category: 'Brand'
+          });
+        }
+
+        if (!existingStateNames.has(pressedName)) {
+          stateTokens.push({
+            name: pressedName,
+            light: adjustBrightness(token.light, -10),
+            dark: adjustBrightness(token.dark, -10),
+            category: 'Brand'
+          });
+        }
       }
     });
 
     if (stateTokens.length > 0) {
       onTokensUpdate([...tokens, ...stateTokens]);
-      toast.success(`Generated ${stateTokens.length} interaction states`);
+      toast.success(`Generated ${stateTokens.length} new interaction states`);
     } else {
       toast.info('All brand colors already have states');
     }
@@ -441,12 +534,29 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
         </TabsContent>
 
         <TabsContent value="text">
-          <EnhancedTextStyleManager
-            textStyles={textStyles}
-            onTextStylesUpdate={onTextStylesUpdate}
-            onApplyToFramer={onApplyToFramer}
-            onGlobalFontChange={handleGlobalFontChange}
-          />
+          {textStyles.length === 0 ? (
+            <Card className="p-12 text-center bg-surface-elevated">
+              <Type className="w-12 h-12 text-text-muted mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">No text styles found</h3>
+              <p className="text-text-muted mb-6">
+                Generate a text system to start working with typography
+              </p>
+              <Button onClick={() => {
+                // Navigate to generator and set to text mode
+                window.dispatchEvent(new CustomEvent('generate-text-system'));
+              }} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Generate Text System
+              </Button>
+            </Card>
+          ) : (
+            <EnhancedTextStyleManager
+              textStyles={textStyles}
+              onTextStylesUpdate={onTextStylesUpdate}
+              onApplyToFramer={onApplyToFramer}
+              onGlobalFontChange={handleGlobalFontChange}
+            />
+          )}
         </TabsContent>
       </Tabs>
     </div>
