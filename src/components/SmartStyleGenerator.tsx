@@ -7,7 +7,8 @@ import {
   DropdownMenuContent, 
   DropdownMenuItem, 
   DropdownMenuTrigger,
-  DropdownMenuSeparator 
+  DropdownMenuSeparator,
+  DropdownMenuLabel
 } from '@/components/ui/dropdown-menu';
 import { Plus, Sparkles, ChevronDown, Palette, Type, Zap, CheckCircle, AlertCircle } from 'lucide-react';
 import { ColorToken, TextStyle } from './MagicStyles';
@@ -422,121 +423,52 @@ const SmartStyleGenerator: React.FC<SmartStyleGeneratorProps> = ({
     }
   };
 
+  // If no missing categories, don't show anything
   if (missingCategories.length === 0) {
-    return (
-      <Card className="p-6 border-success/20 bg-success/5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center">
-            <CheckCircle className="w-5 h-5 text-success" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-foreground">Complete Design System</h3>
-            <p className="text-sm text-muted-foreground">
-              Your design system includes all standard categories
-            </p>
-          </div>
-        </div>
-      </Card>
-    );
+    return null;
   }
 
   return (
-    <Card className="p-6 bg-surface-elevated">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-foreground">Smart Generation</h3>
-            <p className="text-sm text-muted-foreground">
-              {totalMissingItems} missing styles detected
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={handleGenerateAll}
-            size="sm"
-            disabled={isGenerating}
-            className="gap-2"
-          >
-            {isGenerating && generatingCategory === 'all' ? (
-              <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
-            ) : (
-              <Zap className="w-4 h-4" />
-            )}
-            Generate All
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2" disabled={isGenerating}>
-                <Plus className="w-4 h-4" />
-                Generate Missing
-                <ChevronDown className="w-3 h-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              {missingCategories.map((category, index) => (
-                <React.Fragment key={category.name}>
-                  <DropdownMenuItem
-                    onClick={() => handleGenerateCategory(category.name)}
-                    disabled={isGenerating}
-                    className="flex items-center justify-between p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      {category.type === 'color' ? (
-                        <Palette className="w-4 h-4 text-primary" />
-                      ) : (
-                        <Type className="w-4 h-4 text-accent" />
-                      )}
-                      <div>
-                        <div className="font-medium">{category.name}</div>
-                        <div className="text-xs text-muted-foreground">{category.description}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {isGenerating && generatingCategory === category.name && (
-                        <div className="animate-spin w-3 h-3 border-2 border-current border-t-transparent rounded-full" />
-                      )}
-                      <Badge variant="secondary" className="text-xs">
-                        {category.count}
-                      </Badge>
-                    </div>
-                  </DropdownMenuItem>
-                  {index < missingCategories.length - 1 && <DropdownMenuSeparator />}
-                </React.Fragment>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
-      {/* Missing items preview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="secondary" size="sm" className="gap-2" disabled={isGenerating}>
+          <Plus className="w-4 h-4" />
+          Generate Missing
+          <ChevronDown className="w-4 h-4" />
+          <Badge variant="outline" className="ml-1 text-xs">
+            {totalMissingItems}
+          </Badge>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64 bg-popover border-border">
+        <DropdownMenuLabel>Missing Categories</DropdownMenuLabel>
+        <DropdownMenuSeparator />
         {missingCategories.map((category) => (
-          <Card key={category.name} className="p-3 bg-background/50 border-dashed">
-            <div className="flex items-center gap-2 mb-2">
-              {category.type === 'color' ? (
-                <Palette className="w-4 h-4 text-primary" />
-              ) : (
-                <Type className="w-4 h-4 text-accent" />
-              )}
-              <span className="font-medium text-sm">{category.name}</span>
-              <Badge variant="outline" className="text-xs ml-auto">
-                {category.count}
-              </Badge>
-            </div>
-            <div className="text-xs text-muted-foreground line-clamp-2">
-              {category.items.slice(0, 3).join(', ')}
-              {category.items.length > 3 && ` +${category.items.length - 3} more`}
-            </div>
-          </Card>
+          <DropdownMenuItem
+            key={category.name}
+            onClick={() => handleGenerateCategory(category.name)}
+            className="flex items-center justify-between cursor-pointer"
+            disabled={isGenerating}
+          >
+            <span>{category.name}</span>
+            <Badge variant="secondary" className="text-xs">
+              {category.count}
+            </Badge>
+          </DropdownMenuItem>
         ))}
-      </div>
-    </Card>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={handleGenerateAll}
+          className="flex items-center justify-between cursor-pointer font-medium"
+          disabled={isGenerating}
+        >
+          <span>Generate All Missing</span>
+          <Badge variant="outline" className="text-xs">
+            {totalMissingItems}
+          </Badge>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 

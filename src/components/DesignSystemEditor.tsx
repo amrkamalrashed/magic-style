@@ -4,9 +4,10 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, CheckCircle, Palette, Wand2, Copy, Type, Sparkles, Shield, Zap, Plus, Settings } from 'lucide-react';
+import { AlertCircle, CheckCircle, Palette, Wand2, Copy, Type, Sparkles, Shield, Zap, Plus, Settings, ChevronDown } from 'lucide-react';
 import { ColorToken, TextStyle } from './MagicStyles';
 import { AccessibilityIndicator } from './AccessibilityIndicator';
 import { ViewToggle, ViewMode } from './ViewToggle';
@@ -398,12 +399,67 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* Primary Action - Generate All */}
+          <Button 
+            onClick={async () => {
+              await generateDarkMode();
+              await generateStates();
+              await fixAccessibility();
+            }}
+            size="sm" 
+            className="gap-2"
+          >
+            <Sparkles className="w-4 h-4" />
+            Generate All
+          </Button>
+
+          {/* Secondary Action - Generate Missing (Integration will come in next phase) */}
+          <SmartStyleGenerator 
+            tokens={tokens}
+            textStyles={textStyles}
+            onTokensUpdate={onTokensUpdate}
+            onTextStylesUpdate={onTextStylesUpdate}
+          />
+
+          {/* Additional Actions Group */}
+          <div className="flex items-center gap-2">
+            <Button 
+              onClick={generateDarkMode} 
+              variant="outline" 
+              size="sm" 
+              className="gap-2"
+              disabled={isGeneratingDarkMode}
+            >
+              {isGeneratingDarkMode ? (
+                <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
+              ) : (
+                <Palette className="w-4 h-4" />
+              )}
+              Generate Dark Mode
+            </Button>
+            <Button 
+              onClick={generateStates} 
+              variant="outline" 
+              size="sm" 
+              className="gap-2"
+              disabled={isGeneratingStates}
+            >
+              {isGeneratingStates ? (
+                <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
+              ) : (
+                <Wand2 className="w-4 h-4" />
+              )}
+              Generate States
+            </Button>
+          </div>
+
+          {/* Tertiary Action - Fix Accessibility */}
           <Button 
             onClick={fixAccessibility} 
             variant="outline" 
             size="sm" 
-            className="gap-2"
+            className="gap-2 opacity-80"
             disabled={isFixingAccessibility}
           >
             {isFixingAccessibility ? (
@@ -413,35 +469,9 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
             )}
             Fix Accessibility
           </Button>
-          <Button 
-            onClick={generateDarkMode} 
-            variant="outline" 
-            size="sm" 
-            className="gap-2"
-            disabled={isGeneratingDarkMode}
-          >
-            {isGeneratingDarkMode ? (
-              <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
-            ) : (
-              <Palette className="w-4 h-4" />
-            )}
-            Generate Dark Mode
-          </Button>
-          <Button 
-            onClick={generateStates} 
-            variant="outline" 
-            size="sm" 
-            className="gap-2"
-            disabled={isGeneratingStates}
-          >
-            {isGeneratingStates ? (
-              <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
-            ) : (
-              <Wand2 className="w-4 h-4" />
-            )}
-            Generate States
-          </Button>
-          <Button onClick={onApplyToFramer} size="sm" className="gap-2">
+
+          {/* Apply Action */}
+          <Button onClick={onApplyToFramer} variant="secondary" size="sm" className="gap-2">
             <Sparkles className="w-4 h-4" />
             Apply to Framer
           </Button>
@@ -499,14 +529,6 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
         </div>
 
         <TabsContent value="colors" className="space-y-6">
-          {/* Smart Generation Component */}
-          <SmartStyleGenerator
-            tokens={tokens}
-            textStyles={textStyles}
-            onTokensUpdate={onTokensUpdate}
-            onTextStylesUpdate={onTextStylesUpdate}
-          />
-
           {filteredTokens.length === 0 ? (
             <Card className="p-8 text-center bg-surface-elevated">
               <Palette className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
