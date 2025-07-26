@@ -3,11 +3,18 @@ import { Upload, Download, Palette, Eye, EyeOff, Zap, Sparkles } from 'lucide-re
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { framer } from 'framer-plugin';
 import { TokenImporter } from './TokenImporter';
 import { TokenGrid } from './TokenGrid';
 import { AccessibilityChecker } from './AccessibilityChecker';
 import { StyleExporter } from './StyleExporter';
+
+// Mock Framer API for development/testing
+const mockFramer = {
+  showUI: (options: any) => console.log('Mock: showUI called', options),
+  getColorStyles: () => Promise.resolve([]),
+  createColorStyle: (style: any) => Promise.resolve(console.log('Mock: createColorStyle', style)),
+  notify: (message: string, options?: any) => console.log('Mock notification:', message, options)
+};
 
 export interface ColorToken {
   name: string;
@@ -42,22 +49,34 @@ const MagicStyles = () => {
   const [isFramerReady, setIsFramerReady] = useState(false);
 
   useEffect(() => {
-    // Initialize Framer plugin and show UI
-    framer.showUI({
-      position: 'center',
-      width: 400,
-      height: 600
-    });
+    // Check if running in Framer environment
+    const isFramerEnvironment = typeof window !== 'undefined' && (window as any).framer;
+    
+    if (isFramerEnvironment) {
+      // Real Framer plugin initialization
+      const framer = (window as any).framer;
+      framer.showUI({
+        position: 'center',
+        width: 400,
+        height: 600
+      });
+      loadFramerStyles(framer);
+    } else {
+      // Development mode - use mock
+      mockFramer.showUI({
+        position: 'center',
+        width: 400,
+        height: 600
+      });
+    }
+    
     setIsFramerReady(true);
-
-    // Load existing color styles from Framer
-    loadFramerStyles();
   }, []);
 
-  const loadFramerStyles = async () => {
+  const loadFramerStyles = async (framerAPI: any = mockFramer) => {
     try {
-      const colorStyles = await framer.getColorStyles();
-      const framerTokens: ColorToken[] = colorStyles.map(style => ({
+      const colorStyles = await framerAPI.getColorStyles();
+      const framerTokens: ColorToken[] = colorStyles.map((style: any) => ({
         name: style.name,
         light: style.light || '#ffffff',
         dark: style.dark || style.light || '#ffffff',
@@ -85,25 +104,29 @@ const MagicStyles = () => {
   const applyStylesToFramer = async () => {
     if (!isFramerReady || tokens.length === 0) return;
 
+    // Check if running in Framer environment
+    const isFramerEnvironment = typeof window !== 'undefined' && (window as any).framer;
+    const framerAPI = isFramerEnvironment ? (window as any).framer : mockFramer;
+
     try {
       // Get existing color styles
-      const existingStyles = await framer.getColorStyles();
-      const existingStyleNames = new Set(existingStyles.map(s => s.name));
+      const existingStyles = await framerAPI.getColorStyles();
+      const existingStyleNames = new Set(existingStyles.map((s: any) => s.name));
 
       // Create new styles for tokens that don't exist
       for (const token of tokens) {
         const styleName = token.category ? `${token.category}/${token.name}` : token.name;
         
         if (!existingStyleNames.has(styleName)) {
-          await framer.createColorStyle({
+          await framerAPI.createColorStyle({
             name: styleName,
             light: token.light,
             dark: token.dark
           });
         } else {
           // Update existing style
-          const existingStyle = existingStyles.find(s => s.name === styleName);
-          if (existingStyle) {
+          const existingStyle = existingStyles.find((s: any) => s.name === styleName);
+          if (existingStyle && existingStyle.setAttributes) {
             await existingStyle.setAttributes({
               light: token.light,
               dark: token.dark
@@ -112,10 +135,10 @@ const MagicStyles = () => {
         }
       }
 
-      framer.notify('✨ Successfully applied styles to Framer project!', { variant: 'success' });
+      framerAPI.notify('✨ Successfully applied styles to Framer project!', { variant: 'success' });
     } catch (error) {
       console.error('Failed to apply styles:', error);
-      framer.notify('Failed to apply styles to Framer', { variant: 'error' });
+      framerAPI.notify('Failed to apply styles to Framer', { variant: 'error' });
     }
   };
 
