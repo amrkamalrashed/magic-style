@@ -42,10 +42,23 @@ export interface TokenData {
   [key: string]: any;
 }
 
+export interface TextStyle {
+  id: string;
+  name: string;
+  fontFamily: string;
+  fontSize: string;
+  fontWeight: number;
+  lineHeight: string;
+  letterSpacing: string;
+  color: string;
+  category: 'heading' | 'body' | 'caption' | 'display';
+}
+
 const MagicStyles = () => {
   const [tokens, setTokens] = useState<ColorToken[]>([]);
+  const [textStyles, setTextStyles] = useState<TextStyle[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [activeTab, setActiveTab] = useState<'scanner' | 'generator' | 'preview' | 'export'>('scanner');
+  const [activeTab, setActiveTab] = useState<'scanner' | 'generator' | 'preview'>('scanner');
   const [isFramerReady, setIsFramerReady] = useState(false);
   const [showInitialChoice, setShowInitialChoice] = useState(true);
 
@@ -107,6 +120,10 @@ const MagicStyles = () => {
 
   const handleTokenUpdate = useCallback((updatedTokens: ColorToken[]) => {
     setTokens(updatedTokens);
+  }, []);
+
+  const handleTextStylesUpdate = useCallback((updatedTextStyles: TextStyle[]) => {
+    setTextStyles(updatedTextStyles);
   }, []);
 
   const applyStylesToFramer = async () => {
@@ -202,15 +219,13 @@ const MagicStyles = () => {
       </header>
 
       {/* Navigation */}
-      {!showInitialChoice && (
+      {!showInitialChoice && activeTab !== 'preview' && (
         <nav className="border-b border-border bg-surface-elevated">
           <div className="container mx-auto px-6">
             <div className="flex gap-1 py-3">
               {[
                 { id: 'scanner', label: 'Scanner', icon: Scan },
-                { id: 'generator', label: 'Generator', icon: Plus },
-                { id: 'preview', label: 'Preview', icon: Palette },
-                { id: 'export', label: 'Export', icon: Download }
+                { id: 'generator', label: 'Generator', icon: Plus }
               ].map(({ id, label, icon: Icon }) => (
                 <Button
                   key={id}
@@ -303,17 +318,16 @@ const MagicStyles = () => {
             {activeTab === 'preview' && (
               <IntegratedTokenPreview 
                 tokens={tokens} 
+                textStyles={textStyles}
                 isDarkMode={isDarkMode}
                 onTokensUpdate={handleTokenUpdate}
+                onTextStylesUpdate={handleTextStylesUpdate}
                 onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+                onApplyToFramer={applyStylesToFramer}
               />
             )}
             
-            {activeTab === 'export' && (
-              <StyleExporter tokens={tokens} />
-            )}
-            
-            {tokens.length === 0 && (activeTab === 'preview' || activeTab === 'export') && (
+            {tokens.length === 0 && activeTab === 'preview' && (
               <Card className="p-12 text-center bg-surface-elevated border-border">
                 <Zap className="w-12 h-12 text-text-muted mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-2">No styles yet</h3>

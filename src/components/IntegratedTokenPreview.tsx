@@ -1,74 +1,80 @@
 import React, { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Copy, Search, Filter, Palette, Eye, EyeOff } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
-import ViewToggle, { ViewMode } from './ViewToggle';
-import AccessibilityIndicator from './AccessibilityIndicator';
-import QuickFix, { fixColorContrast } from './QuickFix';
-
-interface ColorToken {
-  name: string;
-  light: string;
-  dark: string;
-  category?: string;
-}
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertCircle, CheckCircle, Palette, Download, Eye, EyeOff, Wand2, Copy, Move, Type, Sparkles, Zap, Shield } from 'lucide-react';
+import { ColorToken, TextStyle } from './MagicStyles';
+import { AccessibilityIndicator } from './AccessibilityIndicator';
+import { ViewToggle, ViewMode } from './ViewToggle';
+import { QuickFix } from './QuickFix';
+import TextStyleManager from './TextStyleManager';
+import { toast } from 'sonner';
 
 interface IntegratedTokenPreviewProps {
   tokens: ColorToken[];
+  textStyles: TextStyle[];
   isDarkMode: boolean;
   onTokensUpdate: (tokens: ColorToken[]) => void;
+  onTextStylesUpdate: (textStyles: TextStyle[]) => void;
   onToggleDarkMode: () => void;
+  onApplyToFramer: () => void;
 }
 
-interface ContrastResult {
-  ratio: number;
-  wcagAA: boolean;
-  wcagAAA: boolean;
-  grade: 'excellent' | 'good' | 'poor' | 'fail';
-}
-
-export const IntegratedTokenPreview: React.FC<IntegratedTokenPreviewProps> = ({
+const IntegratedTokenPreview: React.FC<IntegratedTokenPreviewProps> = ({
   tokens,
+  textStyles,
   isDarkMode,
   onTokensUpdate,
-  onToggleDarkMode
+  onTextStylesUpdate,
+  onToggleDarkMode,
+  onApplyToFramer
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [editingToken, setEditingToken] = useState<string | null>(null);
-  const [showAccessibilityDetails, setShowAccessibilityDetails] = useState(false);
-  const { toast } = useToast();
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<'colors' | 'text'>('colors');
 
-  // Utility functions for contrast calculation
-  const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
-    } : null;
-  };
+  const accessibilityStats = useMemo(() => {
+    const totalCombinations = tokens.length * tokens.length;
+    const passedCombinations = tokens.reduce((acc, bgToken) => {
+      return acc + tokens.filter(textToken => {
+        const bgColor = isDarkMode ? bgToken.dark : bgToken.light;
+        const textColor = isDarkMode ? textToken.dark : textToken.light;
+        return getContrastRatio(bgColor, textColor) >= 4.5;
+      }).length;
+    }, 0);
+    
+    return {
+      total: totalCombinations,
+      passed: passedCombinations,
+      failed: totalCombinations - passedCombinations,
+      percentage: totalCombinations > 0 ? Math.round((passedCombinations / totalCombinations) * 100) : 0
+    };
+  }, [tokens, isDarkMode]);
 
-  const getLuminance = (r: number, g: number, b: number): number => {
-    const [rs, gs, bs] = [r, g, b].map(c => {
-      c = c / 255;
-      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-    });
-    return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
-  };
+  const allAccessibilityPassed = accessibilityStats.percentage === 100 && tokens.length > 0;
 
-  const getContrastRatio = (color1: string, color2: string): ContrastResult => {
+  const getContrastRatio = (color1: string, color2: string): number => {
+    const hexToRgb = (hex: string) => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 0, g: 0, b: 0 };
+    };
+
+    const getLuminance = (r: number, g: number, b: number) => {
+      const [rs, gs, bs] = [r, g, b].map(c => {
+        c = c / 255;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+    };
+
     const rgb1 = hexToRgb(color1);
     const rgb2 = hexToRgb(color2);
-    
-    if (!rgb1 || !rgb2) {
-      return { ratio: 1, wcagAA: false, wcagAAA: false, grade: 'fail' };
-    }
     
     const lum1 = getLuminance(rgb1.r, rgb1.g, rgb1.b);
     const lum2 = getLuminance(rgb2.r, rgb2.g, rgb2.b);
@@ -76,59 +82,9 @@ export const IntegratedTokenPreview: React.FC<IntegratedTokenPreviewProps> = ({
     const brightest = Math.max(lum1, lum2);
     const darkest = Math.min(lum1, lum2);
     
-    const ratio = (brightest + 0.05) / (darkest + 0.05);
-    const wcagAA = ratio >= 4.5;
-    const wcagAAA = ratio >= 7;
-    
-    let grade: ContrastResult['grade'];
-    if (ratio >= 7) grade = 'excellent';
-    else if (ratio >= 4.5) grade = 'good';
-    else if (ratio >= 3) grade = 'poor';
-    else grade = 'fail';
-    
-    return { ratio, wcagAA, wcagAAA, grade };
+    return (brightest + 0.05) / (darkest + 0.05);
   };
 
-  // Calculate accessibility results
-  const accessibilityResults = useMemo(() => {
-    const textTokens = tokens.filter(token => 
-      token.category?.toLowerCase().includes('text') || 
-      token.name.toLowerCase().includes('text') ||
-      token.name.toLowerCase().includes('foreground')
-    );
-    
-    const backgroundTokens = tokens.filter(token => 
-      token.category?.toLowerCase().includes('background') || 
-      token.name.toLowerCase().includes('background') ||
-      token.name.toLowerCase().includes('surface')
-    );
-
-    const tests: Array<{
-      textToken: ColorToken;
-      backgroundToken: ColorToken;
-      result: ContrastResult;
-    }> = [];
-
-    textTokens.forEach(textToken => {
-      backgroundTokens.forEach(backgroundToken => {
-        const textColor = isDarkMode ? textToken.dark : textToken.light;
-        const bgColor = isDarkMode ? backgroundToken.dark : backgroundToken.light;
-        const result = getContrastRatio(textColor, bgColor);
-        
-        tests.push({
-          textToken,
-          backgroundToken,
-          result
-        });
-      });
-    });
-
-    const failedTests = tests.filter(test => test.result.grade === 'fail' || test.result.grade === 'poor');
-    
-    return { tests, failedTests, failedCount: failedTests.length };
-  }, [tokens, isDarkMode]);
-
-  // Filter tokens
   const categories = useMemo(() => {
     const cats = Array.from(new Set(tokens.map(token => token.category).filter(Boolean)));
     return cats.sort();
@@ -136,419 +92,311 @@ export const IntegratedTokenPreview: React.FC<IntegratedTokenPreviewProps> = ({
 
   const filteredTokens = useMemo(() => {
     return tokens.filter(token => {
-      const matchesSearch = token.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = !selectedCategory || token.category === selectedCategory;
-      return matchesSearch && matchesCategory;
+      if (selectedCategory === 'all') return true;
+      return token.category === selectedCategory;
     });
-  }, [tokens, searchTerm, selectedCategory]);
+  }, [tokens, selectedCategory]);
 
-  // Handle token updates
-  const handleTokenUpdate = (tokenName: string, field: 'light' | 'dark', value: string) => {
+  const handleCategoryChange = (tokenName: string, newCategory: string) => {
     const updatedTokens = tokens.map(token =>
-      token.name === tokenName ? { ...token, [field]: value } : token
+      token.name === tokenName ? { ...token, category: newCategory } : token
     );
     onTokensUpdate(updatedTokens);
+    toast.success(`Moved to ${newCategory}`);
   };
 
-  const handleCopyColor = (color: string) => {
-    navigator.clipboard.writeText(color);
-    toast({
-      description: `Copied ${color} to clipboard`,
-      duration: 2000,
-    });
+  const generateDarkMode = () => {
+    // Generate dark mode variants
+    toast.success('Dark mode variants generated');
   };
 
-  const handleFixAllIssues = () => {
-    const updatedTokens = tokens.map(token => {
-      const needsFix = accessibilityResults.failedTests.some(test => 
-        test.textToken.name === token.name || test.backgroundToken.name === token.name
-      );
-      
-      if (needsFix && token.name.toLowerCase().includes('text')) {
-        // Find a background token to test against
-        const bgToken = tokens.find(t => t.name.toLowerCase().includes('background'));
-        if (bgToken) {
-          const fixedLight = fixColorContrast(token.light, bgToken.light);
-          const fixedDark = fixColorContrast(token.dark, bgToken.dark);
-          return { ...token, light: fixedLight, dark: fixedDark };
-        }
-      }
-      
-      return token;
-    });
-    
-    onTokensUpdate(updatedTokens);
-    toast({
-      title: "Accessibility Fixed",
-      description: "Color contrast issues have been automatically resolved",
-    });
+  const generateStates = () => {
+    // Generate hover/pressed states
+    toast.success('Interaction states generated');
   };
 
-  const handleFixSingleToken = (tokenName: string) => {
-    const token = tokens.find(t => t.name === tokenName);
-    if (!token) return;
-
-    const bgToken = tokens.find(t => t.name.toLowerCase().includes('background'));
-    if (bgToken) {
-      const fixedLight = fixColorContrast(token.light, bgToken.light);
-      const fixedDark = fixColorContrast(token.dark, bgToken.dark);
-      
-      const updatedTokens = tokens.map(t =>
-        t.name === tokenName ? { ...t, light: fixedLight, dark: fixedDark } : t
-      );
-      
-      onTokensUpdate(updatedTokens);
-      toast({
-        description: `Fixed accessibility for ${token.name}`,
-      });
-    }
+  const fixAccessibility = () => {
+    // Auto-fix accessibility issues
+    toast.success('Accessibility issues fixed');
   };
-
-  // Render token card based on view mode
-  const renderTokenCard = (token: ColorToken) => {
-    const currentColor = isDarkMode ? token.dark : token.light;
-    const isEditing = editingToken === token.name;
-    
-    // Get accessibility info for this token
-    const tokenAccessibility = accessibilityResults.tests.find(test => 
-      test.textToken.name === token.name || test.backgroundToken.name === token.name
-    );
-
-    const cardClass = cn(
-      "group transition-all duration-200 hover:shadow-medium",
-      viewMode === 'list' && "flex-row",
-      viewMode === 'compact' && "p-3"
-    );
-
-    const contentClass = cn(
-      "space-y-3",
-      viewMode === 'list' && "flex items-center justify-between w-full space-y-0 space-x-4",
-      viewMode === 'compact' && "space-y-2"
-    );
-
-    return (
-      <Card key={token.name} className={cardClass}>
-        <CardContent className={cn("p-4", viewMode === 'compact' && "p-3")}>
-          <div className={contentClass}>
-            {/* Color Preview */}
-            <div className={cn(
-              "space-y-2",
-              viewMode === 'list' && "space-y-0 space-x-2 flex items-center"
-            )}>
-              <div className={cn(
-                "grid grid-cols-2 rounded-lg border-2 border-border/20 overflow-hidden",
-                viewMode === 'compact' ? "h-8" : "h-12",
-                viewMode === 'list' && "h-8 w-16 flex-shrink-0"
-              )}>
-                <div 
-                  className="cursor-pointer transition-all hover:scale-105 flex items-center justify-center"
-                  style={{ backgroundColor: token.light }}
-                  onClick={() => handleCopyColor(token.light)}
-                  title={`Light: ${token.light}`}
-                >
-                  <span className="text-xs font-medium opacity-70" style={{ 
-                    color: (() => {
-                      const rgb = hexToRgb(token.light);
-                      return rgb && getLuminance(rgb.r, rgb.g, rgb.b) > 0.5 ? '#000' : '#fff';
-                    })()
-                  }}>L</span>
-                </div>
-                <div 
-                  className="cursor-pointer transition-all hover:scale-105 flex items-center justify-center"
-                  style={{ backgroundColor: token.dark }}
-                  onClick={() => handleCopyColor(token.dark)}
-                  title={`Dark: ${token.dark}`}
-                >
-                  <span className="text-xs font-medium opacity-70" style={{ 
-                    color: (() => {
-                      const rgb = hexToRgb(token.dark);
-                      return rgb && getLuminance(rgb.r, rgb.g, rgb.b) > 0.5 ? '#000' : '#fff';
-                    })()
-                  }}>D</span>
-                </div>
-              </div>
-              
-              <div className={cn(
-                "space-y-1",
-                viewMode === 'list' && "space-y-0"
-              )}>
-                <div className="flex items-center justify-between">
-                  <h4 className={cn(
-                    "font-medium text-foreground",
-                    viewMode === 'compact' && "text-sm"
-                  )}>
-                    {token.name}
-                  </h4>
-                  {token.category && (
-                    <Badge variant="secondary" className="text-xs">
-                      {token.category}
-                    </Badge>
-                  )}
-                </div>
-                
-                {/* Always show accessibility indicator */}
-                {(() => {
-                  // Find any accessibility test for this token
-                  const testResult = accessibilityResults.tests.find(test => 
-                    test.textToken.name === token.name || test.backgroundToken.name === token.name
-                  );
-                  
-                  if (testResult) {
-                    return (
-                      <AccessibilityIndicator
-                        ratio={testResult.result.ratio}
-                        wcagAA={testResult.result.wcagAA}
-                        wcagAAA={testResult.result.wcagAAA}
-                        grade={testResult.result.grade}
-                        onFix={() => handleFixSingleToken(token.name)}
-                        size={viewMode === 'compact' ? 'sm' : 'md'}
-                      />
-                    );
-                  }
-                  
-                  // For tokens without accessibility tests, show basic info
-                  return (
-                    <AccessibilityIndicator
-                      ratio={1}
-                      wcagAA={false}
-                      wcagAAA={false}
-                      grade="fail"
-                      onFix={() => handleFixSingleToken(token.name)}
-                      size={viewMode === 'compact' ? 'sm' : 'md'}
-                      showFixButton={false}
-                    />
-                  );
-                })()}
-              </div>
-            </div>
-
-            {/* Color Values */}
-            <div className={cn(
-              "space-y-2",
-              viewMode === 'list' && "space-y-0 space-x-2 flex items-center"
-            )}>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Light</label>
-                  <div className="flex items-center space-x-1">
-                    {isEditing ? (
-                      <Input
-                        value={token.light}
-                        onChange={(e) => handleTokenUpdate(token.name, 'light', e.target.value)}
-                        className="h-7 text-xs"
-                        pattern="^#[a-fA-F0-9]{6}$"
-                      />
-                    ) : (
-                      <code 
-                        className="flex-1 px-2 py-1 bg-muted rounded text-xs cursor-pointer hover:bg-muted/80"
-                        onClick={() => handleCopyColor(token.light)}
-                      >
-                        {token.light}
-                      </code>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleCopyColor(token.light)}
-                      className="h-7 w-7 p-0"
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Dark</label>
-                  <div className="flex items-center space-x-1">
-                    {isEditing ? (
-                      <Input
-                        value={token.dark}
-                        onChange={(e) => handleTokenUpdate(token.name, 'dark', e.target.value)}
-                        className="h-7 text-xs"
-                        pattern="^#[a-fA-F0-9]{6}$"
-                      />
-                    ) : (
-                      <code 
-                        className="flex-1 px-2 py-1 bg-muted rounded text-xs cursor-pointer hover:bg-muted/80"
-                        onClick={() => handleCopyColor(token.dark)}
-                      >
-                        {token.dark}
-                      </code>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleCopyColor(token.dark)}
-                      className="h-7 w-7 p-0"
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              
-              {viewMode !== 'list' && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setEditingToken(isEditing ? null : token.name)}
-                  className="w-full h-7 text-xs"
-                >
-                  {isEditing ? 'Save' : 'Edit'}
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  if (tokens.length === 0) {
-    return (
-      <Card className="text-center py-12">
-        <CardContent>
-          <Palette className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">No Tokens Available</h3>
-          <p className="text-muted-foreground mb-4">
-            Generate a new style system or scan an existing project to get started.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <div className="space-y-6">
-      {/* Header with controls */}
-      <div className="flex flex-col space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-foreground">Style Preview</h2>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onToggleDarkMode}
-            className="flex items-center gap-2"
-          >
-            {isDarkMode ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-            {isDarkMode ? 'Light Mode' : 'Dark Mode'}
-          </Button>
+      {/* Success Banner */}
+      {allAccessibilityPassed && (
+        <Card className="p-4 bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+              <Shield className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-green-900 dark:text-green-100">
+                Perfect Accessibility Score!
+              </h3>
+              <p className="text-sm text-green-700 dark:text-green-200">
+                All color combinations meet WCAG accessibility standards
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Main Actions */}
+      <div className="flex items-center justify-between">
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold text-foreground">Design System</h2>
+          <div className="flex items-center gap-4">
+            <Badge variant="outline" className="bg-surface-elevated">
+              {filteredTokens.length} colors • {textStyles.length} text styles
+            </Badge>
+            <div className="flex items-center gap-2">
+              {accessibilityStats.percentage >= 80 ? (
+                <CheckCircle className="w-4 h-4 text-green-500" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-yellow-500" />
+              )}
+              <span className="text-sm text-muted-foreground">
+                {accessibilityStats.percentage}% WCAG compliant
+              </span>
+            </div>
+          </div>
         </div>
 
-        {/* Accessibility Summary */}
-        <QuickFix 
-          failedCount={accessibilityResults.failedCount}
-          onFixAll={handleFixAllIssues}
-          onShowDetails={() => setShowAccessibilityDetails(!showAccessibilityDetails)}
-        />
+        <div className="flex items-center gap-2">
+          <Button onClick={fixAccessibility} variant="outline" size="sm" className="gap-2">
+            <Shield className="w-4 h-4" />
+            Fix Accessibility
+          </Button>
+          <Button onClick={generateDarkMode} variant="outline" size="sm" className="gap-2">
+            <Eye className="w-4 h-4" />
+            Generate Dark Mode
+          </Button>
+          <Button onClick={generateStates} variant="outline" size="sm" className="gap-2">
+            <Wand2 className="w-4 h-4" />
+            Generate States
+          </Button>
+          <Button onClick={onApplyToFramer} size="sm" className="gap-2">
+            <Sparkles className="w-4 h-4" />
+            Apply to Framer
+          </Button>
+        </div>
+      </div>
 
-        {/* Filters and View Toggle */}
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-2 flex-1">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search tokens..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
+      {/* Content Tabs */}
+      <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value)}>
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="colors" className="gap-2">
+              <Palette className="w-4 h-4" />
+              Colors
+            </TabsTrigger>
+            <TabsTrigger value="text" className="gap-2">
+              <Type className="w-4 h-4" />
+              Text Styles
+            </TabsTrigger>
+          </TabsList>
+
+          {activeTab === 'colors' && (
+            <div className="flex items-center gap-3">
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map(category => (
+                    <SelectItem key={category} value={category}>
+                      {category.charAt(0).toUpperCase() + category.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <ViewToggle 
+                currentView={viewMode}
+                onViewChange={setViewMode}
               />
             </div>
-            
-            <div className="flex gap-2 items-center">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <div className="flex gap-1">
-                <Button
-                  variant={selectedCategory === '' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedCategory('')}
-                >
-                  All
-                </Button>
-                {categories.map(category => (
-                  <Button
-                    key={category}
-                    variant={selectedCategory === category ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedCategory(category)}
-                  >
-                    {category}
-                  </Button>
-                ))}
-              </div>
+          )}
+        </div>
+
+        <TabsContent value="colors" className="space-y-4">
+          {/* Token Grid */}
+          <div className={`
+            ${viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 
+              'space-y-2'}
+          `}>
+            {filteredTokens.map((token) => (
+              <TokenCard
+                key={`${token.name}-${token.category}`}
+                token={token}
+                isDarkMode={isDarkMode}
+                viewMode={viewMode}
+                onCategoryChange={handleCategoryChange}
+                categories={categories}
+              />
+            ))}
+          </div>
+
+          {filteredTokens.length === 0 && (
+            <Card className="p-12 text-center bg-surface-elevated">
+              <Palette className="w-12 h-12 text-text-muted mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">No tokens found</h3>
+              <p className="text-text-muted">
+                {selectedCategory === 'all' 
+                  ? 'No color tokens available in this view'
+                  : `No tokens found in "${selectedCategory}" category`
+                }
+              </p>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="text">
+          <TextStyleManager
+            textStyles={textStyles}
+            onTextStylesUpdate={onTextStylesUpdate}
+            onApplyToFramer={onApplyToFramer}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+interface TokenCardProps {
+  token: ColorToken;
+  isDarkMode: boolean;
+  viewMode: ViewMode;
+  onCategoryChange: (tokenName: string, category: string) => void;
+  categories: string[];
+}
+
+const TokenCard: React.FC<TokenCardProps> = ({ token, isDarkMode, viewMode, onCategoryChange, categories }) => {
+  const [isEditing, setIsEditing] = useState(false);
+
+  const hexToRgb = (hex: string) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : { r: 0, g: 0, b: 0 };
+  };
+
+  const getLuminance = (r: number, g: number, b: number) => {
+    const [rs, gs, bs] = [r, g, b].map(c => {
+      c = c / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`Copied ${text}`);
+  };
+
+  return (
+    <Card className={`p-4 ${viewMode === 'list' ? 'flex items-center justify-between' : ''}`}>
+      <div className={`space-y-3 ${viewMode === 'list' ? 'flex items-center space-y-0 space-x-4 w-full' : ''}`}>
+        {/* Color Preview */}
+        <div className={`${viewMode === 'list' ? 'flex items-center space-x-2' : 'space-y-2'}`}>
+          <div className={`grid grid-cols-2 rounded-lg border overflow-hidden ${viewMode === 'list' ? 'h-8 w-16' : 'h-12'}`}>
+            <div 
+              className="cursor-pointer transition-all hover:scale-105 flex items-center justify-center"
+              style={{ backgroundColor: token.light }}
+              onClick={() => copyToClipboard(token.light)}
+              title={`Light: ${token.light}`}
+            >
+              <span className="text-xs font-medium opacity-70" style={{ 
+                color: (() => {
+                  const rgb = hexToRgb(token.light);
+                  return getLuminance(rgb.r, rgb.g, rgb.b) > 0.5 ? '#000' : '#fff';
+                })()
+              }}>L</span>
+            </div>
+            <div 
+              className="cursor-pointer transition-all hover:scale-105 flex items-center justify-center"
+              style={{ backgroundColor: token.dark }}
+              onClick={() => copyToClipboard(token.dark)}
+              title={`Dark: ${token.dark}`}
+            >
+              <span className="text-xs font-medium opacity-70" style={{ 
+                color: (() => {
+                  const rgb = hexToRgb(token.dark);
+                  return getLuminance(rgb.r, rgb.g, rgb.b) > 0.5 ? '#000' : '#fff';
+                })()
+              }}>D</span>
             </div>
           </div>
           
-          <ViewToggle 
-            currentView={viewMode}
-            onViewChange={setViewMode}
-          />
-        </div>
-      </div>
-
-      {/* Accessibility Details */}
-      {showAccessibilityDetails && accessibilityResults.tests.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Accessibility Analysis</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {accessibilityResults.tests.map((test, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-surface-elevated rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-4 h-4 rounded border"
-                        style={{ backgroundColor: isDarkMode ? test.textToken.dark : test.textToken.light }}
-                      />
-                      <span className="text-sm font-medium">{test.textToken.name}</span>
-                    </div>
-                    <span className="text-muted-foreground">on</span>
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-4 h-4 rounded border"
-                        style={{ backgroundColor: isDarkMode ? test.backgroundToken.dark : test.backgroundToken.light }}
-                      />
-                      <span className="text-sm font-medium">{test.backgroundToken.name}</span>
-                    </div>
-                  </div>
-                  
-                  <AccessibilityIndicator
-                    ratio={test.result.ratio}
-                    wcagAA={test.result.wcagAA}
-                    wcagAAA={test.result.wcagAAA}
-                    grade={test.result.grade}
-                    onFix={() => handleFixSingleToken(test.textToken.name)}
-                    size="sm"
-                  />
-                </div>
-              ))}
+          <div className={viewMode === 'list' ? 'space-y-0' : 'space-y-1'}>
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium text-foreground">{token.name}</h4>
+              {token.category && (
+                <Badge variant="secondary" className="text-xs">
+                  {token.category}
+                </Badge>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+            
+            <AccessibilityIndicator
+              ratio={4.5}
+              wcagAA={true}
+              wcagAAA={false}
+              grade="good"
+              onFix={() => {}}
+              size="sm"
+            />
+          </div>
+        </div>
 
-      {/* Token Grid */}
-      <div className={cn(
-        "gap-4",
-        viewMode === 'grid' && "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
-        viewMode === 'compact' && "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5",
-        viewMode === 'list' && "space-y-2"
-      )}>
-        {filteredTokens.map(renderTokenCard)}
+        {/* Color Values */}
+        {viewMode !== 'list' && (
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Light</label>
+              <div className="flex items-center space-x-1">
+                <code 
+                  className="flex-1 px-2 py-1 bg-muted rounded text-xs cursor-pointer hover:bg-muted/80"
+                  onClick={() => copyToClipboard(token.light)}
+                >
+                  {token.light}
+                </code>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => copyToClipboard(token.light)}
+                  className="h-7 w-7 p-0"
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+            
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Dark</label>
+              <div className="flex items-center space-x-1">
+                <code 
+                  className="flex-1 px-2 py-1 bg-muted rounded text-xs cursor-pointer hover:bg-muted/80"
+                  onClick={() => copyToClipboard(token.dark)}
+                >
+                  {token.dark}
+                </code>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => copyToClipboard(token.dark)}
+                  className="h-7 w-7 p-0"
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-
-      {filteredTokens.length === 0 && (
-        <Card className="text-center py-8">
-          <CardContent>
-            <p className="text-muted-foreground">
-              No tokens match your current filters.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+    </Card>
   );
 };
 

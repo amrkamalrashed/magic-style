@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Grid3X3, List, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type ViewMode = 'grid' | 'list' | 'compact';
+export type ViewMode = 'grid' | 'list';
 
 interface ViewToggleProps {
   currentView: ViewMode;
@@ -18,7 +18,6 @@ export const ViewToggle: React.FC<ViewToggleProps> = ({
 }) => {
   const views = [
     { id: 'grid' as ViewMode, icon: LayoutGrid, label: 'Grid View' },
-    { id: 'compact' as ViewMode, icon: Grid3X3, label: 'Compact Grid' },
     { id: 'list' as ViewMode, icon: List, label: 'List View' }
   ];
 
