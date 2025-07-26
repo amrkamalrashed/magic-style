@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Upload, Download, Palette, Eye, EyeOff, Zap, Sparkles } from 'lucide-react';
+import { Scan, Download, Palette, Eye, EyeOff, Zap, Sparkles, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TokenImporter } from './TokenImporter';
+import { ProjectScanner } from './ProjectScanner';
+import { StyleGenerator } from './StyleGenerator';
 import { TokenGrid } from './TokenGrid';
 import { AccessibilityChecker } from './AccessibilityChecker';
 import { StyleExporter } from './StyleExporter';
@@ -45,8 +46,9 @@ export interface TokenData {
 const MagicStyles = () => {
   const [tokens, setTokens] = useState<ColorToken[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [activeTab, setActiveTab] = useState<'import' | 'preview' | 'accessibility' | 'export'>('import');
+  const [activeTab, setActiveTab] = useState<'scanner' | 'generator' | 'preview' | 'accessibility' | 'export'>('scanner');
   const [isFramerReady, setIsFramerReady] = useState(false);
+  const [showInitialChoice, setShowInitialChoice] = useState(true);
 
   useEffect(() => {
     // Check if running in Framer environment
@@ -92,8 +94,15 @@ const MagicStyles = () => {
     }
   };
 
-  const handleTokensImported = useCallback((importedTokens: ColorToken[]) => {
-    setTokens(importedTokens);
+  const handleStylesScanned = useCallback((scannedTokens: ColorToken[]) => {
+    setTokens(scannedTokens);
+    setShowInitialChoice(false);
+    setActiveTab('preview');
+  }, []);
+
+  const handleStylesGenerated = useCallback((generatedTokens: ColorToken[]) => {
+    setTokens(generatedTokens);
+    setShowInitialChoice(false);
     setActiveTab('preview');
   }, []);
 
@@ -194,64 +203,141 @@ const MagicStyles = () => {
       </header>
 
       {/* Navigation */}
-      <nav className="border-b border-border bg-surface-elevated">
-        <div className="container mx-auto px-6">
-          <div className="flex gap-1 py-3">
-            {[
-              { id: 'import', label: 'Import', icon: Upload },
-              { id: 'preview', label: 'Preview', icon: Palette },
-              { id: 'accessibility', label: 'Accessibility', icon: Eye },
-              { id: 'export', label: 'Export', icon: Download }
-            ].map(({ id, label, icon: Icon }) => (
-              <Button
-                key={id}
-                variant={activeTab === id ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setActiveTab(id as any)}
-                className="gap-2"
-              >
-                <Icon className="w-4 h-4" />
-                {label}
-              </Button>
-            ))}
+      {!showInitialChoice && (
+        <nav className="border-b border-border bg-surface-elevated">
+          <div className="container mx-auto px-6">
+            <div className="flex gap-1 py-3">
+              {[
+                { id: 'scanner', label: 'Scanner', icon: Scan },
+                { id: 'generator', label: 'Generator', icon: Plus },
+                { id: 'preview', label: 'Preview', icon: Palette },
+                { id: 'accessibility', label: 'Accessibility', icon: Eye },
+                { id: 'export', label: 'Export', icon: Download }
+              ].map(({ id, label, icon: Icon }) => (
+                <Button
+                  key={id}
+                  variant={activeTab === id ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setActiveTab(id as any)}
+                  className="gap-2"
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </Button>
+              ))}
+            </div>
           </div>
-        </div>
-      </nav>
+        </nav>
+      )}
 
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
-        {activeTab === 'import' && (
-          <TokenImporter onTokensImported={handleTokensImported} />
-        )}
-        
-        {activeTab === 'preview' && (
-          <TokenGrid 
-            tokens={tokens} 
-            isDarkMode={isDarkMode}
-            onTokensUpdate={handleTokenUpdate}
-          />
-        )}
-        
-        {activeTab === 'accessibility' && (
-          <AccessibilityChecker tokens={tokens} isDarkMode={isDarkMode} />
-        )}
-        
-        {activeTab === 'export' && (
-          <StyleExporter tokens={tokens} />
-        )}
-        
-        {tokens.length === 0 && activeTab !== 'import' && (
-          <Card className="p-12 text-center bg-surface-elevated border-border">
-            <Zap className="w-12 h-12 text-text-muted mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground mb-2">No tokens imported yet</h3>
-            <p className="text-text-muted mb-6">
-              Import your color tokens to get started with Magic Styles
-            </p>
-            <Button onClick={() => setActiveTab('import')} className="gap-2">
-              <Upload className="w-4 h-4" />
-              Import Tokens
-            </Button>
-          </Card>
+        {showInitialChoice ? (
+          <div className="space-y-8">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold text-foreground mb-2">Magic Styles</h2>
+              <p className="text-text-muted text-lg">
+                Choose how you want to start building your design system
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+              {/* Scan Project Option */}
+              <Card 
+                className="p-8 cursor-pointer transition-all hover:shadow-glow hover:border-primary/50 bg-surface-elevated"
+                onClick={() => {
+                  setShowInitialChoice(false);
+                  setActiveTab('scanner');
+                }}
+              >
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-gradient-primary mx-auto flex items-center justify-center">
+                    <Scan className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-foreground">Scan Project</h3>
+                  <p className="text-text-muted">
+                    Analyze your existing Framer project to discover styles, identify improvements, and apply enhancements like accessibility fixes and dark mode generation.
+                  </p>
+                  <Button className="w-full gap-2">
+                    <Scan className="w-4 h-4" />
+                    Scan Existing Styles
+                  </Button>
+                </div>
+              </Card>
+
+              {/* Generate New System Option */}
+              <Card 
+                className="p-8 cursor-pointer transition-all hover:shadow-glow hover:border-primary/50 bg-surface-elevated"
+                onClick={() => {
+                  setShowInitialChoice(false);
+                  setActiveTab('generator');
+                }}
+              >
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-gradient-accent mx-auto flex items-center justify-center">
+                    <Sparkles className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-foreground">Generate New System</h3>
+                  <p className="text-text-muted">
+                    Start from scratch with just your primary and secondary colors. Generate a complete design system with semantic tokens, states, and accessibility compliance.
+                  </p>
+                  <Button variant="outline" className="w-full gap-2">
+                    <Plus className="w-4 h-4" />
+                    Create New System
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          </div>
+        ) : (
+          <>
+            {activeTab === 'scanner' && (
+              <ProjectScanner 
+                onStylesScanned={handleStylesScanned} 
+                isFramerReady={isFramerReady}
+              />
+            )}
+            
+            {activeTab === 'generator' && (
+              <StyleGenerator onStylesGenerated={handleStylesGenerated} />
+            )}
+            
+            {activeTab === 'preview' && (
+              <TokenGrid 
+                tokens={tokens} 
+                isDarkMode={isDarkMode}
+                onTokensUpdate={handleTokenUpdate}
+              />
+            )}
+            
+            {activeTab === 'accessibility' && (
+              <AccessibilityChecker tokens={tokens} isDarkMode={isDarkMode} />
+            )}
+            
+            {activeTab === 'export' && (
+              <StyleExporter tokens={tokens} />
+            )}
+            
+            {tokens.length === 0 && (activeTab === 'preview' || activeTab === 'accessibility' || activeTab === 'export') && (
+              <Card className="p-12 text-center bg-surface-elevated border-border">
+                <Zap className="w-12 h-12 text-text-muted mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">No styles yet</h3>
+                <p className="text-text-muted mb-6">
+                  Scan your project or generate a new system to get started
+                </p>
+                <div className="flex gap-2 justify-center">
+                  <Button onClick={() => setActiveTab('scanner')} className="gap-2">
+                    <Scan className="w-4 h-4" />
+                    Scan Project
+                  </Button>
+                  <Button variant="outline" onClick={() => setActiveTab('generator')} className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    Generate System
+                  </Button>
+                </div>
+              </Card>
+            )}
+          </>
         )}
       </main>
     </div>
