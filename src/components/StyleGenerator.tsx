@@ -104,20 +104,20 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
       { name: 'Tertiary Pressed', light: adjustLightness(tertiary, -10), dark: adjustLightness(tertiary, -10), category: 'Brand' }
     );
 
-    // Neutrals - White to Black scale
+    // Neutrals - Light to Dark scale
     const neutrals = [
-      { suffix: 'White', light: '#ffffff', dark: '#000000' },
-      { suffix: '50', light: '#f9fafb', dark: '#1a1a1a' },
-      { suffix: '100', light: '#f3f4f6', dark: '#262626' },
-      { suffix: '200', light: '#e5e7eb', dark: '#404040' },
-      { suffix: '300', light: '#d1d5db', dark: '#525252' },
-      { suffix: '400', light: '#9ca3af', dark: '#737373' },
-      { suffix: '500', light: '#6b7280', dark: '#a3a3a3' },
-      { suffix: '600', light: '#4b5563', dark: '#d4d4d4' },
-      { suffix: '700', light: '#374151', dark: '#e5e5e5' },
-      { suffix: '800', light: '#1f2937', dark: '#f5f5f5' },
-      { suffix: '900', light: '#111827', dark: '#fafafa' },
-      { suffix: 'Black', light: '#000000', dark: '#ffffff' }
+      { suffix: '50', light: '#ffffff', dark: '#000000' },
+      { suffix: '100', light: '#f9fafb', dark: '#1a1a1a' },
+      { suffix: '200', light: '#f3f4f6', dark: '#262626' },
+      { suffix: '300', light: '#e5e7eb', dark: '#404040' },
+      { suffix: '400', light: '#d1d5db', dark: '#525252' },
+      { suffix: '500', light: '#9ca3af', dark: '#737373' },
+      { suffix: '600', light: '#6b7280', dark: '#a3a3a3' },
+      { suffix: '700', light: '#4b5563', dark: '#d4d4d4' },
+      { suffix: '800', light: '#374151', dark: '#e5e5e5' },
+      { suffix: '900', light: '#1f2937', dark: '#f5f5f5' },
+      { suffix: '950', light: '#111827', dark: '#fafafa' },
+      { suffix: '1000', light: '#000000', dark: '#ffffff' }
     ];
 
     neutrals.forEach(({ suffix, light, dark }) => {

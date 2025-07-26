@@ -235,16 +235,38 @@ export const IntegratedTokenPreview: React.FC<IntegratedTokenPreviewProps> = ({
               "space-y-2",
               viewMode === 'list' && "space-y-0 space-x-2 flex items-center"
             )}>
-              <div 
-                className={cn(
-                  "rounded-lg border-2 border-border/20 cursor-pointer transition-all hover:scale-105",
-                  viewMode === 'compact' ? "h-8 w-full" : "h-12 w-full",
-                  viewMode === 'list' && "h-8 w-16 flex-shrink-0"
-                )}
-                style={{ backgroundColor: currentColor }}
-                onClick={() => handleCopyColor(currentColor)}
-                title={`Click to copy ${currentColor}`}
-              />
+              <div className={cn(
+                "grid grid-cols-2 rounded-lg border-2 border-border/20 overflow-hidden",
+                viewMode === 'compact' ? "h-8" : "h-12",
+                viewMode === 'list' && "h-8 w-16 flex-shrink-0"
+              )}>
+                <div 
+                  className="cursor-pointer transition-all hover:scale-105 flex items-center justify-center"
+                  style={{ backgroundColor: token.light }}
+                  onClick={() => handleCopyColor(token.light)}
+                  title={`Light: ${token.light}`}
+                >
+                  <span className="text-xs font-medium opacity-70" style={{ 
+                    color: (() => {
+                      const rgb = hexToRgb(token.light);
+                      return rgb && getLuminance(rgb.r, rgb.g, rgb.b) > 0.5 ? '#000' : '#fff';
+                    })()
+                  }}>L</span>
+                </div>
+                <div 
+                  className="cursor-pointer transition-all hover:scale-105 flex items-center justify-center"
+                  style={{ backgroundColor: token.dark }}
+                  onClick={() => handleCopyColor(token.dark)}
+                  title={`Dark: ${token.dark}`}
+                >
+                  <span className="text-xs font-medium opacity-70" style={{ 
+                    color: (() => {
+                      const rgb = hexToRgb(token.dark);
+                      return rgb && getLuminance(rgb.r, rgb.g, rgb.b) > 0.5 ? '#000' : '#fff';
+                    })()
+                  }}>D</span>
+                </div>
+              </div>
               
               <div className={cn(
                 "space-y-1",
@@ -264,16 +286,39 @@ export const IntegratedTokenPreview: React.FC<IntegratedTokenPreviewProps> = ({
                   )}
                 </div>
                 
-                {tokenAccessibility && (
-                  <AccessibilityIndicator
-                    ratio={tokenAccessibility.result.ratio}
-                    wcagAA={tokenAccessibility.result.wcagAA}
-                    wcagAAA={tokenAccessibility.result.wcagAAA}
-                    grade={tokenAccessibility.result.grade}
-                    onFix={() => handleFixSingleToken(token.name)}
-                    size={viewMode === 'compact' ? 'sm' : 'md'}
-                  />
-                )}
+                {/* Always show accessibility indicator */}
+                {(() => {
+                  // Find any accessibility test for this token
+                  const testResult = accessibilityResults.tests.find(test => 
+                    test.textToken.name === token.name || test.backgroundToken.name === token.name
+                  );
+                  
+                  if (testResult) {
+                    return (
+                      <AccessibilityIndicator
+                        ratio={testResult.result.ratio}
+                        wcagAA={testResult.result.wcagAA}
+                        wcagAAA={testResult.result.wcagAAA}
+                        grade={testResult.result.grade}
+                        onFix={() => handleFixSingleToken(token.name)}
+                        size={viewMode === 'compact' ? 'sm' : 'md'}
+                      />
+                    );
+                  }
+                  
+                  // For tokens without accessibility tests, show basic info
+                  return (
+                    <AccessibilityIndicator
+                      ratio={1}
+                      wcagAA={false}
+                      wcagAAA={false}
+                      grade="fail"
+                      onFix={() => handleFixSingleToken(token.name)}
+                      size={viewMode === 'compact' ? 'sm' : 'md'}
+                      showFixButton={false}
+                    />
+                  );
+                })()}
               </div>
             </div>
 

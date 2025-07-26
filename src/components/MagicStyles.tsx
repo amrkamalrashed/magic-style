@@ -96,7 +96,7 @@ const MagicStyles = () => {
   const handleStylesScanned = useCallback((scannedTokens: ColorToken[]) => {
     setTokens(scannedTokens);
     setShowInitialChoice(false);
-    setActiveTab('preview');
+    setActiveTab('preview'); // Auto-navigate to preview after scan
   }, []);
 
   const handleStylesGenerated = useCallback((generatedTokens: ColorToken[]) => {
