@@ -19,6 +19,12 @@ interface SmartStyleGeneratorProps {
   textStyles: TextStyle[];
   onTokensUpdate: (tokens: ColorToken[]) => void;
   onTextStylesUpdate: (textStyles: TextStyle[]) => void;
+  onGenerateDarkMode?: () => Promise<void>;
+  onGenerateStates?: () => Promise<void>;
+  onFixAccessibility?: () => Promise<void>;
+  isGeneratingDarkMode?: boolean;
+  isGeneratingStates?: boolean;
+  isFixingAccessibility?: boolean;
 }
 
 interface MissingCategory {
@@ -33,7 +39,13 @@ const SmartStyleGenerator: React.FC<SmartStyleGeneratorProps> = ({
   tokens,
   textStyles,
   onTokensUpdate,
-  onTextStylesUpdate
+  onTextStylesUpdate,
+  onGenerateDarkMode,
+  onGenerateStates,
+  onFixAccessibility,
+  isGeneratingDarkMode = false,
+  isGeneratingStates = false,
+  isFixingAccessibility = false
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingCategory, setGeneratingCategory] = useState<string | null>(null);
@@ -154,7 +166,15 @@ const SmartStyleGenerator: React.FC<SmartStyleGeneratorProps> = ({
     return categories;
   }, [tokens, textStyles]);
 
-  const totalMissingItems = missingCategories.reduce((sum, cat) => sum + cat.count, 0);
+  // Check for missing dark mode and states
+  const missingDarkMode = tokens.filter(token => token.light === token.dark || !token.dark || token.dark === '#ffffff').length;
+  const missingStates = tokens.filter(t => t.category === 'Brand' && !t.name.includes('Hover') && !t.name.includes('Pressed')).length * 2;
+  const hasTextMain = tokens.some(token => token.name === 'Text Main');
+
+  const totalMissingItems = missingCategories.reduce((sum, cat) => sum + cat.count, 0) + 
+    (missingDarkMode > 0 ? 1 : 0) + 
+    (missingStates > 0 ? 1 : 0) + 
+    (!hasTextMain ? 1 : 0);
 
   // Generation functions
   const adjustBrightness = (hex: string, percent: number): string => {
@@ -472,6 +492,49 @@ const SmartStyleGenerator: React.FC<SmartStyleGeneratorProps> = ({
             </Badge>
           </DropdownMenuItem>
         ))}
+        
+        {/* Dark Mode Generation */}
+        {missingDarkMode > 0 && onGenerateDarkMode && (
+          <DropdownMenuItem
+            onClick={onGenerateDarkMode}
+            className="flex items-center justify-between cursor-pointer"
+            disabled={isGeneratingDarkMode || isGenerating}
+          >
+            <span>Generate Dark Mode</span>
+            <Badge variant="secondary" className="text-xs">
+              {missingDarkMode}
+            </Badge>
+          </DropdownMenuItem>
+        )}
+        
+        {/* States Generation */}
+        {missingStates > 0 && onGenerateStates && (
+          <DropdownMenuItem
+            onClick={onGenerateStates}
+            className="flex items-center justify-between cursor-pointer"
+            disabled={isGeneratingStates || isGenerating}
+          >
+            <span>Generate States</span>
+            <Badge variant="secondary" className="text-xs">
+              {missingStates}
+            </Badge>
+          </DropdownMenuItem>
+        )}
+        
+        {/* Accessibility Fix */}
+        {!hasTextMain && onFixAccessibility && (
+          <DropdownMenuItem
+            onClick={onFixAccessibility}
+            className="flex items-center justify-between cursor-pointer"
+            disabled={isFixingAccessibility || isGenerating}
+          >
+            <span>Fix Accessibility</span>
+            <Badge variant="destructive" className="text-xs">
+              !
+            </Badge>
+          </DropdownMenuItem>
+        )}
+        
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={handleGenerateAll}
@@ -480,7 +543,7 @@ const SmartStyleGenerator: React.FC<SmartStyleGeneratorProps> = ({
         >
           <span>Generate All Missing</span>
           <Badge variant="outline" className="text-xs">
-            {totalMissingItems}
+            {missingCategories.reduce((sum, cat) => sum + cat.count, 0)}
           </Badge>
         </DropdownMenuItem>
       </DropdownMenuContent>

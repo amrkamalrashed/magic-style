@@ -74,10 +74,12 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
   const accessibilityStats = useMemo(() => {
     // Find Text Main token for accessibility checks
     const textMainToken = tokens.find(token => token.name === 'Text Main');
-    if (!textMainToken) return { total: 0, passed: 0, failed: 0, percentage: 0 };
+    if (!textMainToken) return { total: 0, passed: 0, failed: 0, percentage: 0, hasTextMain: false };
 
     const backgroundTokens = tokens.filter(token => token.category === 'Background');
     const totalCombinations = backgroundTokens.length;
+    
+    if (totalCombinations === 0) return { total: 0, passed: 0, failed: 0, percentage: 0, hasTextMain: true };
     
     const passedCombinations = backgroundTokens.filter(bgToken => {
       const bgColor = isDarkMode ? bgToken.dark : bgToken.light;
@@ -89,7 +91,8 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
       total: totalCombinations,
       passed: passedCombinations,
       failed: totalCombinations - passedCombinations,
-      percentage: totalCombinations > 0 ? Math.round((passedCombinations / totalCombinations) * 100) : 0
+      percentage: totalCombinations > 0 ? Math.round((passedCombinations / totalCombinations) * 100) : 0,
+      hasTextMain: true
     };
   }, [tokens, isDarkMode, getContrastRatio]);
 
@@ -100,19 +103,37 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
     return cats.sort();
   }, [tokens]);
 
+  const sortTokens = (tokensToSort: ColorToken[]) => {
+    const categoryPriority = { 'Brand': 1, 'Text': 2, 'Background': 3, 'Semantic': 4, 'Neutral': 5 };
+    return tokensToSort.sort((a, b) => {
+      const priorityA = categoryPriority[a.category as keyof typeof categoryPriority] || 99;
+      const priorityB = categoryPriority[b.category as keyof typeof categoryPriority] || 99;
+      if (priorityA !== priorityB) return priorityA - priorityB;
+      return a.name.localeCompare(b.name);
+    });
+  };
+
   const filteredTokens = useMemo(() => {
-    return tokens.filter(token => {
+    const filtered = tokens.filter(token => {
       if (selectedCategory === 'all') return true;
       return token.category === selectedCategory;
     });
+    return sortTokens(filtered);
   }, [tokens, selectedCategory]);
 
   const handleCategoryChange = (tokenName: string, newCategory: string) => {
     const updatedTokens = tokens.map(token =>
       token.name === tokenName ? { ...token, category: newCategory } : token
     );
-    onTokensUpdate(updatedTokens);
+    onTokensUpdate(sortTokens(updatedTokens));
     toast.success(`Moved to ${newCategory}`);
+  };
+
+  const handleTokenUpdate = (updatedToken: ColorToken) => {
+    const updatedTokens = tokens.map(token =>
+      token.name === updatedToken.name ? updatedToken : token
+    );
+    onTokensUpdate(sortTokens(updatedTokens));
   };
 
   const fixAccessibility = async () => {
@@ -187,7 +208,7 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
       return token;
     });
     
-    onTokensUpdate(fixedTokens);
+    onTokensUpdate(sortTokens(fixedTokens));
     setIsFixingAccessibility(false);
     toast.success('Background colors fixed for Text Main contrast');
   };
@@ -240,7 +261,7 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
       };
     });
     
-    onTokensUpdate(enhancedTokens);
+    onTokensUpdate(sortTokens(enhancedTokens));
     setIsGeneratingDarkMode(false);
     toast.success(`Generated dark mode for ${tokensNeedingDarkMode.length} tokens`);
   };
@@ -282,7 +303,7 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
     });
 
     if (stateTokens.length > 0) {
-      onTokensUpdate([...tokens, ...stateTokens]);
+      onTokensUpdate(sortTokens([...tokens, ...stateTokens]));
       toast.success(`Generated ${stateTokens.length} new interaction states`);
     } else {
       toast.info('All brand colors already have states');
@@ -387,88 +408,36 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
               {filteredTokens.length} colors • {textStyles.length} text styles
             </Badge>
             <div className="flex items-center gap-2">
-              {accessibilityStats.percentage >= 80 ? (
+              {!accessibilityStats.hasTextMain ? (
+                <AlertCircle className="w-4 h-4 text-red-500" />
+              ) : accessibilityStats.percentage >= 80 ? (
                 <CheckCircle className="w-4 h-4 text-green-500" />
               ) : (
                 <AlertCircle className="w-4 h-4 text-yellow-500" />
               )}
               <span className="text-sm text-muted-foreground">
-                {accessibilityStats.percentage}% WCAG compliant
+                {!accessibilityStats.hasTextMain 
+                  ? "Text Main token missing" 
+                  : `${accessibilityStats.percentage}% WCAG compliant`}
               </span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Primary Action - Generate All */}
-          <Button 
-            onClick={async () => {
-              await generateDarkMode();
-              await generateStates();
-              await fixAccessibility();
-            }}
-            size="sm" 
-            className="gap-2"
-          >
-            <Sparkles className="w-4 h-4" />
-            Generate All
-          </Button>
-
-          {/* Secondary Action - Generate Missing (Integration will come in next phase) */}
+          {/* Primary Action - Generate Missing */}
           <SmartStyleGenerator 
             tokens={tokens}
             textStyles={textStyles}
             onTokensUpdate={onTokensUpdate}
             onTextStylesUpdate={onTextStylesUpdate}
+            onGenerateDarkMode={generateDarkMode}
+            onGenerateStates={generateStates}
+            onFixAccessibility={fixAccessibility}
+            isGeneratingDarkMode={isGeneratingDarkMode}
+            isGeneratingStates={isGeneratingStates}
+            isFixingAccessibility={isFixingAccessibility}
           />
-
-          {/* Additional Actions Group */}
-          <div className="flex items-center gap-2">
-            <Button 
-              onClick={generateDarkMode} 
-              variant="outline" 
-              size="sm" 
-              className="gap-2"
-              disabled={isGeneratingDarkMode}
-            >
-              {isGeneratingDarkMode ? (
-                <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
-              ) : (
-                <Palette className="w-4 h-4" />
-              )}
-              Generate Dark Mode
-            </Button>
-            <Button 
-              onClick={generateStates} 
-              variant="outline" 
-              size="sm" 
-              className="gap-2"
-              disabled={isGeneratingStates}
-            >
-              {isGeneratingStates ? (
-                <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
-              ) : (
-                <Wand2 className="w-4 h-4" />
-              )}
-              Generate States
-            </Button>
-          </div>
-
-          {/* Tertiary Action - Fix Accessibility */}
-          <Button 
-            onClick={fixAccessibility} 
-            variant="outline" 
-            size="sm" 
-            className="gap-2 opacity-80"
-            disabled={isFixingAccessibility}
-          >
-            {isFixingAccessibility ? (
-              <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
-            ) : (
-              <Shield className="w-4 h-4" />
-            )}
-            Fix Accessibility
-          </Button>
 
           {/* Apply Action */}
           <Button onClick={onApplyToFramer} variant="secondary" size="sm" className="gap-2">
@@ -549,7 +518,7 @@ const DesignSystemEditor: React.FC<DesignSystemEditorProps> = ({
                   isDarkMode={isDarkMode}
                   viewMode={viewMode}
                   onCategoryChange={handleCategoryChange}
-                  categories={categories}
+                  onTokenUpdate={handleTokenUpdate}
                 />
               ))}
             </div>
@@ -583,12 +552,24 @@ interface TokenCardProps {
   token: ColorToken;
   isDarkMode: boolean;
   viewMode: ViewMode;
-  onCategoryChange: (tokenName: string, category: string) => void;
-  categories: string[];
+  onCategoryChange: (tokenName: string, newCategory: string) => void;
+  onTokenUpdate: (token: ColorToken) => void;
 }
 
-const TokenCard: React.FC<TokenCardProps> = ({ token, isDarkMode, viewMode, onCategoryChange, categories }) => {
+const TokenCard: React.FC<TokenCardProps> = ({ token, isDarkMode, viewMode, onCategoryChange, onTokenUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [editedToken, setEditedToken] = useState(token);
+
+  const handleSave = () => {
+    onTokenUpdate(editedToken);
+    setIsEditing(false);
+    toast.success('Token updated');
+  };
+
+  const handleCancel = () => {
+    setEditedToken(token);
+    setIsEditing(false);
+  };
 
   const hexToRgb = (hex: string) => {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -648,7 +629,7 @@ const TokenCard: React.FC<TokenCardProps> = ({ token, isDarkMode, viewMode, onCa
             </div>
           </div>
           
-          <div className={viewMode === 'list' ? 'space-y-0' : 'space-y-1'}>
+          <div className={viewMode === 'list' ? 'flex items-center space-x-2 flex-1' : 'space-y-1'}>
             <div className="flex items-center justify-between">
               <h4 className="font-medium text-foreground">{token.name}</h4>
               {token.category && (
@@ -658,29 +639,37 @@ const TokenCard: React.FC<TokenCardProps> = ({ token, isDarkMode, viewMode, onCa
               )}
             </div>
             
-            <AccessibilityIndicator
-              ratio={4.5}
-              wcagAA={true}
-              wcagAAA={false}
-              grade="good"
-              onFix={() => {}}
-              size="sm"
-            />
+            {viewMode === 'list' && (
+              <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                <span>{token.light}</span>
+                <span>•</span>
+                <span>{token.dark}</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Color Values */}
+        {/* Color Values - Grid View */}
         {viewMode !== 'list' && (
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">Light</label>
               <div className="flex items-center space-x-1">
-                <code 
-                  className="flex-1 px-2 py-1 bg-muted rounded text-xs cursor-pointer hover:bg-muted/80"
-                  onClick={() => copyToClipboard(token.light)}
-                >
-                  {token.light}
-                </code>
+                {isEditing ? (
+                  <Input
+                    value={editedToken.light}
+                    onChange={(e) => setEditedToken({ ...editedToken, light: e.target.value })}
+                    className="flex-1 h-7 text-xs"
+                    placeholder="#000000"
+                  />
+                ) : (
+                  <code 
+                    className="flex-1 px-2 py-1 bg-muted rounded text-xs cursor-pointer hover:bg-muted/80"
+                    onClick={() => copyToClipboard(token.light)}
+                  >
+                    {token.light}
+                  </code>
+                )}
                 <Button
                   size="sm"
                   variant="ghost"
@@ -695,12 +684,21 @@ const TokenCard: React.FC<TokenCardProps> = ({ token, isDarkMode, viewMode, onCa
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">Dark</label>
               <div className="flex items-center space-x-1">
-                <code 
-                  className="flex-1 px-2 py-1 bg-muted rounded text-xs cursor-pointer hover:bg-muted/80"
-                  onClick={() => copyToClipboard(token.dark)}
-                >
-                  {token.dark}
-                </code>
+                {isEditing ? (
+                  <Input
+                    value={editedToken.dark}
+                    onChange={(e) => setEditedToken({ ...editedToken, dark: e.target.value })}
+                    className="flex-1 h-7 text-xs"
+                    placeholder="#ffffff"
+                  />
+                ) : (
+                  <code 
+                    className="flex-1 px-2 py-1 bg-muted rounded text-xs cursor-pointer hover:bg-muted/80"
+                    onClick={() => copyToClipboard(token.dark)}
+                  >
+                    {token.dark}
+                  </code>
+                )}
                 <Button
                   size="sm"
                   variant="ghost"
@@ -710,6 +708,49 @@ const TokenCard: React.FC<TokenCardProps> = ({ token, isDarkMode, viewMode, onCa
                   <Copy className="h-3 w-3" />
                 </Button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Controls */}
+        {viewMode !== 'list' && (
+          <div className="flex items-center justify-between pt-2 border-t border-border">
+            <Select
+              value={token.category || ''}
+              onValueChange={(value) => onCategoryChange(token.name, value)}
+            >
+              <SelectTrigger className="w-32 h-7 text-xs">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Brand">Brand</SelectItem>
+                <SelectItem value="Text">Text</SelectItem>
+                <SelectItem value="Background">Background</SelectItem>
+                <SelectItem value="Semantic">Semantic</SelectItem>
+                <SelectItem value="Neutral">Neutral</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <div className="flex items-center space-x-1">
+              {isEditing ? (
+                <>
+                  <Button onClick={handleCancel} variant="outline" size="sm" className="h-7">
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSave} size="sm" className="h-7">
+                    Save
+                  </Button>
+                </>
+              ) : (
+                <Button 
+                  onClick={() => setIsEditing(true)} 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7"
+                >
+                  Edit
+                </Button>
+              )}
             </div>
           </div>
         )}

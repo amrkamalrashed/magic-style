@@ -106,14 +106,24 @@ const MagicStyles = () => {
     }
   };
 
+  const sortTokens = (tokensToSort: ColorToken[]) => {
+    const categoryPriority = { 'Brand': 1, 'Text': 2, 'Background': 3, 'Semantic': 4, 'Neutral': 5 };
+    return tokensToSort.sort((a, b) => {
+      const priorityA = categoryPriority[a.category as keyof typeof categoryPriority] || 99;
+      const priorityB = categoryPriority[b.category as keyof typeof categoryPriority] || 99;
+      if (priorityA !== priorityB) return priorityA - priorityB;
+      return a.name.localeCompare(b.name);
+    });
+  };
+
   const handleStylesScanned = useCallback((scannedTokens: ColorToken[]) => {
-    setTokens(scannedTokens);
+    setTokens(sortTokens(scannedTokens));
     setShowInitialChoice(false);
     setActiveTab('edit'); // Auto-navigate to edit after scan
   }, []);
 
   const handleStylesGenerated = useCallback((generatedTokens: ColorToken[]) => {
-    setTokens(generatedTokens);
+    setTokens(sortTokens(generatedTokens));
     setShowInitialChoice(false);
     setActiveTab('edit');
   }, []);
@@ -145,7 +155,7 @@ const MagicStyles = () => {
   }, []);
 
   const handleTokenUpdate = useCallback((updatedTokens: ColorToken[]) => {
-    setTokens(updatedTokens);
+    setTokens(sortTokens(updatedTokens));
   }, []);
 
   const handleTextStylesUpdate = useCallback((updatedTextStyles: TextStyle[]) => {
@@ -294,14 +304,14 @@ const MagicStyles = () => {
                   <div className="w-16 h-16 rounded-full bg-gradient-primary mx-auto flex items-center justify-center">
                     <Scan className="w-8 h-8 text-white" />
                   </div>
-                  <h3 className="text-xl font-semibold text-foreground">Scan Project</h3>
-                  <p className="text-text-muted">
-                    Analyze your existing Framer project to discover styles, identify improvements, and apply enhancements like accessibility fixes and dark mode generation.
-                  </p>
-                  <Button className="w-full gap-2">
-                    <Scan className="w-4 h-4" />
-                    Scan Existing Styles
-                  </Button>
+                   <h3 className="text-xl font-semibold text-foreground">Scan Styles</h3>
+                   <p className="text-text-muted">
+                     Analyze your existing Framer project to discover styles, identify improvements, and apply enhancements like accessibility fixes and dark mode generation.
+                   </p>
+                   <Button className="w-full gap-2">
+                     <Scan className="w-4 h-4" />
+                     Scan Existing Styles
+                   </Button>
                 </div>
               </Card>
 
@@ -317,14 +327,14 @@ const MagicStyles = () => {
                   <div className="w-16 h-16 rounded-full bg-gradient-accent mx-auto flex items-center justify-center">
                     <Sparkles className="w-8 h-8 text-white" />
                   </div>
-                  <h3 className="text-xl font-semibold text-foreground">Generate New System</h3>
-                  <p className="text-text-muted">
-                    Start from scratch with just your primary and secondary colors. Generate a complete design system with semantic tokens, states, and accessibility compliance.
-                  </p>
-                  <Button variant="outline" className="w-full gap-2">
-                    <Plus className="w-4 h-4" />
-                    Create New System
-                  </Button>
+                   <h3 className="text-xl font-semibold text-foreground">Generate Styles</h3>
+                   <p className="text-text-muted">
+                     Start from scratch with just your primary and secondary colors. Generate a complete design system with semantic tokens, states, and accessibility compliance.
+                   </p>
+                   <Button variant="outline" className="w-full gap-2">
+                     <Plus className="w-4 h-4" />
+                     Create New System
+                   </Button>
                 </div>
               </Card>
             </div>
