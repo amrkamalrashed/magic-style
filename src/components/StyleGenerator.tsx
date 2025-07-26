@@ -217,20 +217,23 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
     
     // Smart typography scale - using mathematical relationships
     const textStyleDefinitions = [
-      { name: 'H1', multiplier: 3, weight: 700, lineHeight: 1.1, category: 'heading' as const },
-      { name: 'H2', multiplier: 2.25, weight: 600, lineHeight: 1.15, category: 'heading' as const },
-      { name: 'H3', multiplier: 1.875, weight: 600, lineHeight: 1.2, category: 'heading' as const },
-      { name: 'H4', multiplier: 1.5, weight: 500, lineHeight: 1.2, category: 'heading' as const },
-      { name: 'H5', multiplier: 1.25, weight: 500, lineHeight: 1.2, category: 'heading' as const },
-      { name: 'H6', multiplier: 1.125, weight: 500, lineHeight: 1.2, category: 'heading' as const },
-      { name: 'Body L', multiplier: 1.125, weight: 400, lineHeight: 1.6, category: 'body' as const },
-      { name: 'Body M', multiplier: 1, weight: 400, lineHeight: 1.5, category: 'body' as const },
-      { name: 'Sub-title', multiplier: 0.875, weight: 500, lineHeight: 1.4, category: 'caption' as const },
-      { name: 'Caption', multiplier: 0.75, weight: 400, lineHeight: 1.3, category: 'caption' as const }
+      { name: 'H1', step: 5, weight: 700, lineHeight: 1.1, category: 'heading' as const },
+      { name: 'H2', step: 4, weight: 600, lineHeight: 1.15, category: 'heading' as const },
+      { name: 'H3', step: 3, weight: 600, lineHeight: 1.2, category: 'heading' as const },
+      { name: 'H4', step: 2, weight: 500, lineHeight: 1.2, category: 'heading' as const },
+      { name: 'H5', step: 1, weight: 500, lineHeight: 1.2, category: 'heading' as const },
+      { name: 'H6', step: 0.5, weight: 500, lineHeight: 1.2, category: 'heading' as const },
+      { name: 'Body L', step: 0.25, weight: 400, lineHeight: 1.6, category: 'body' as const },
+      { name: 'Body M', step: 0, weight: 400, lineHeight: 1.5, category: 'body' as const },
+      { name: 'Sub-title', step: -0.5, weight: 500, lineHeight: 1.4, category: 'caption' as const },
+      { name: 'Caption', step: -1, weight: 400, lineHeight: 1.3, category: 'caption' as const }
     ];
 
+    // Use Major Third ratio (1.25) as default for generation
+    const ratio = 1.25;
+
     textStyleDefinitions.forEach((def, index) => {
-      const fontSize = Math.round(baseFontSize * def.multiplier);
+      const fontSize = Math.round(baseFontSize * Math.pow(ratio, def.step));
       
       textStyles.push({
         id: `text-${index}`,
@@ -239,7 +242,7 @@ export const StyleGenerator: React.FC<StyleGeneratorProps> = ({ onStylesGenerate
         fontSize: `${fontSize}px`,
         fontWeight: def.weight,
         lineHeight: def.lineHeight.toString(),
-        letterSpacing: fontSize >= 24 ? '-0.02em' : '0px', // Tighter spacing for larger text
+        letterSpacing: fontSize >= 24 ? '-0.02em' : fontSize >= 20 ? '-0.01em' : '0px',
         color: '#1f2937', // Use Text Main color instead of primary
         category: def.category
       });

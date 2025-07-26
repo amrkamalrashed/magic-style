@@ -51,7 +51,7 @@ export interface TextStyle {
   lineHeight: string;
   letterSpacing: string;
   color: string;
-  category: 'heading' | 'body' | 'caption' | 'display';
+  category: 'heading' | 'body' | 'caption';
 }
 
 const MagicStyles = () => {

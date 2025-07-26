@@ -311,32 +311,48 @@ const SmartStyleGenerator: React.FC<SmartStyleGeneratorProps> = ({
     const textMainToken = tokens.find(token => token.name === 'Text Main');
     const textColor = textMainToken?.light || '#1f2937';
 
+    // Use Major Third ratio (1.25) as default
+    const baseSize = 16;
+    const ratio = 1.25;
+
     const textStyleDefinitions = [
-      { name: 'H1', fontSize: 48, weight: 700, lineHeight: 1.1, category: 'heading' as const },
-      { name: 'H2', fontSize: 36, weight: 600, lineHeight: 1.15, category: 'heading' as const },
-      { name: 'H3', fontSize: 30, weight: 600, lineHeight: 1.2, category: 'heading' as const },
-      { name: 'H4', fontSize: 24, weight: 500, lineHeight: 1.2, category: 'heading' as const },
-      { name: 'H5', fontSize: 20, weight: 500, lineHeight: 1.2, category: 'heading' as const },
-      { name: 'H6', fontSize: 18, weight: 500, lineHeight: 1.2, category: 'heading' as const },
-      { name: 'Body L', fontSize: 18, weight: 400, lineHeight: 1.6, category: 'body' as const },
-      { name: 'Body M', fontSize: 16, weight: 400, lineHeight: 1.5, category: 'body' as const },
-      { name: 'Sub-title', fontSize: 14, weight: 500, lineHeight: 1.4, category: 'caption' as const },
-      { name: 'Caption', fontSize: 12, weight: 400, lineHeight: 1.3, category: 'caption' as const }
+      { name: 'H1', step: 5, weight: 700, lineHeight: 1.1, category: 'heading' as const },
+      { name: 'H2', step: 4, weight: 600, lineHeight: 1.15, category: 'heading' as const },
+      { name: 'H3', step: 3, weight: 600, lineHeight: 1.2, category: 'heading' as const },
+      { name: 'H4', step: 2, weight: 500, lineHeight: 1.2, category: 'heading' as const },
+      { name: 'H5', step: 1, weight: 500, lineHeight: 1.2, category: 'heading' as const },
+      { name: 'H6', step: 0.5, weight: 500, lineHeight: 1.2, category: 'heading' as const },
+      { name: 'Body L', step: 0.25, weight: 400, lineHeight: 1.6, category: 'body' as const },
+      { name: 'Body M', step: 0, weight: 400, lineHeight: 1.5, category: 'body' as const },
+      { name: 'Sub-title', step: -0.5, weight: 500, lineHeight: 1.4, category: 'caption' as const },
+      { name: 'Caption', step: -1, weight: 400, lineHeight: 1.3, category: 'caption' as const }
     ];
 
+    // Clean up existing duplicates and generic names
+    const cleanedTextStyles = textStyles.filter(ts => {
+      // Remove generic names that will be replaced
+      if (ts.name === 'New Text Style' || ts.name.includes('Text Style')) {
+        return false;
+      }
+      return true;
+    });
+
     return textStyleDefinitions.filter(def => 
-      !textStyles.some(ts => ts.name === def.name)
-    ).map((def, index) => ({
-      id: `text-${Date.now()}-${index}`,
-      name: def.name,
-      fontFamily: 'Inter',
-      fontSize: `${def.fontSize}px`,
-      fontWeight: def.weight,
-      lineHeight: def.lineHeight.toString(),
-      letterSpacing: def.fontSize >= 24 ? '-0.02em' : '0px',
-      color: textColor,
-      category: def.category
-    }));
+      !cleanedTextStyles.some(ts => ts.name === def.name)
+    ).map((def, index) => {
+      const fontSize = Math.round(baseSize * Math.pow(ratio, def.step));
+      return {
+        id: `text-${Date.now()}-${index}`,
+        name: def.name,
+        fontFamily: 'Inter',
+        fontSize: `${fontSize}px`,
+        fontWeight: def.weight,
+        lineHeight: def.lineHeight.toString(),
+        letterSpacing: fontSize >= 24 ? '-0.02em' : fontSize >= 20 ? '-0.01em' : '0px',
+        color: textColor,
+        category: def.category
+      };
+    });
   };
 
   const handleGenerateCategory = async (categoryName: string) => {
