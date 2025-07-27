@@ -15,68 +15,33 @@ declare global {
   }
 }
 
-// Enhanced Framer API detection - only returns real API
+// Simplified Framer API detection for UI component
 const getFramerAPI = () => {
-  console.log('🔍 Checking for Framer environment...');
-  
-  if (typeof window === 'undefined') {
-    console.log('⚠️ No window object - not in browser');
-    return null;
+  // Check for direct Framer API
+  if ((window as any).framer) {
+    return (window as any).framer;
   }
   
-  console.log('🌐 Window object exists');
-  
-  // Check for direct Framer API with error handling
+  // Check parent window
   try {
-    if ((window as any).framer) {
-      console.log('✅ Direct Framer API detected!', (window as any).framer);
-      return (window as any).framer;
+    if (window.parent && window.parent !== window && (window.parent as any).framer) {
+      return (window.parent as any).framer;
     }
   } catch (error) {
-    console.log('⚠️ Error accessing direct framer API:', error);
+    // Cross-origin access blocked (expected in development)
   }
   
-  // Check for parent Framer API with proper error handling
+  // Check top window
   try {
-    if (window.parent && window.parent !== window) {
-      const parentFramer = (window.parent as any).framer;
-      if (parentFramer) {
-        console.log('✅ Parent Framer API detected!', parentFramer);
-        return parentFramer;
-      }
+    if (window.top && window.top !== window && (window.top as any).framer) {
+      return (window.top as any).framer;
     }
   } catch (error) {
-    console.log('⚠️ Cross-origin error accessing parent framer (expected in development):', error.message);
+    // Cross-origin access blocked (expected in development)
   }
   
-  // Check for Framer in top window
-  try {
-    if (window.top && window.top !== window) {
-      const topFramer = (window.top as any).framer;
-      if (topFramer) {
-        console.log('✅ Top window Framer API detected!', topFramer);
-        return topFramer;
-      }
-    }
-  } catch (error) {
-    console.log('⚠️ Cross-origin error accessing top framer (expected in development):', error.message);
-  }
-  
-  console.log('ℹ️ No Framer API found - not in Framer environment');
   return null;
 };
-
-
-// Global error handler for debugging
-if (typeof window !== 'undefined') {
-  window.addEventListener('error', (event) => {
-    console.error('🚨 Global error:', event.error);
-  });
-  
-  window.addEventListener('unhandledrejection', (event) => {
-    console.error('🚨 Unhandled promise rejection:', event.reason);
-  });
-}
 
 export interface ColorToken {
   name: string;
@@ -125,40 +90,35 @@ const MagicStyles = () => {
   const [showInitialChoice, setShowInitialChoice] = useState(true);
 
   useEffect(() => {
-    console.log('🚀 MagicStyles initializing...');
+    console.log('🚀 MagicStyles UI initializing...');
     
-    const framerAPI = getFramerAPI();
-    
-    if (framerAPI) {
-      try {
-        // Initialize Framer UI with proper configuration matching framer.json
-        framerAPI.showUI({
-          position: 'center',
-          width: 400,
-          height: 600,
-          resizable: true,
-          minWidth: 300,
-          minHeight: 400,
-          maxWidth: 600,
-          maxHeight: 800
-        });
-        
-        console.log('✅ Framer UI initialized');
+    // Listen for plugin ready message
+    const handlePluginReady = (event: MessageEvent) => {
+      if (event.data.type === 'PLUGIN_READY') {
+        console.log('✅ Plugin ready message received');
+        setIsFramerReady(true);
         
         // Load existing styles
-        loadFramerStyles(framerAPI);
-        
-        setIsFramerReady(true);
-        console.log('✅ MagicStyles ready in Framer environment');
-      } catch (error) {
-        console.error('❌ Failed to initialize Framer UI:', error);
-        framerAPI.notify('Failed to initialize Magic Styles plugin', { variant: 'error' });
-        setIsFramerReady(false);
+        const framerAPI = getFramerAPI();
+        if (framerAPI) {
+          loadFramerStyles(framerAPI);
+        }
       }
-    } else {
-      console.log('⚠️ Not in Framer environment - plugin will show message');
-      setIsFramerReady(false);
+    };
+    
+    window.addEventListener('message', handlePluginReady);
+    
+    // Also check if Framer API is already available (for development)
+    const framerAPI = getFramerAPI();
+    if (framerAPI) {
+      console.log('✅ Framer API already available');
+      setIsFramerReady(true);
+      loadFramerStyles(framerAPI);
     }
+    
+    return () => {
+      window.removeEventListener('message', handlePluginReady);
+    };
   }, []);
 
   const loadFramerStyles = async (framerAPI: any = null) => {

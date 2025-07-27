@@ -26,12 +26,18 @@ export default defineConfig(({ mode }) => ({
     global: 'globalThis',
   },
   build: {
-    // Ensure compatibility with Framer's plugin system
     target: 'es2020',
     rollupOptions: {
+      input: {
+        plugin: 'src/plugin.ts',
+        main: 'index.html'
+      },
       output: {
         format: 'es',
-        inlineDynamicImports: true
+        inlineDynamicImports: true,
+        entryFileNames: '[name].js',
+        chunkFileNames: '[name].js',
+        assetFileNames: '[name].[ext]'
       }
     },
     outDir: 'dist',

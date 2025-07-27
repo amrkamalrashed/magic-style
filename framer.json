@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "A Style Manager and Accessibility Checker for Framer projects. Import, preview, edit, and apply color tokens with built-in accessibility checks.",
   "author": "Magic Styles",
-  "main": "http://localhost:8080/",
+  "main": "src/plugin.ts",
   "modes": ["canvas"],
   "permissions": [
     "read:styles",
