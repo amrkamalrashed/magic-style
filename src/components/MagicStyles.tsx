@@ -15,50 +15,84 @@ declare global {
   }
 }
 
-// Enhanced Framer API detection and debugging
+// Enhanced Framer API detection with proper error handling
 const getFramerAPI = () => {
   console.log('🔍 Checking for Framer environment...');
   
-  if (typeof window !== 'undefined') {
-    console.log('🌐 Window object exists');
-    
-    // Check for Framer API
-    if ((window as any).framer) {
-      console.log('✅ Framer API detected!', (window as any).framer);
-      return (window as any).framer;
-    }
-    
-    // Check for alternative Framer globals
-    if ((window as any).parent?.framer) {
-      console.log('✅ Parent Framer API detected!', (window as any).parent.framer);
-      return (window as any).parent.framer;
-    }
+  if (typeof window === 'undefined') {
+    console.log('⚠️ No window object, using mock');
+    return createMockFramerAPI();
   }
   
-  console.log('⚠️ No Framer API found, using mock');
+  console.log('🌐 Window object exists');
   
-  // Mock Framer API for development/testing
-  return {
-    showUI: (options: any) => console.log('🎭 Mock: showUI called', options),
-    getColorStyles: () => {
-      console.log('🎭 Mock: getColorStyles called');
-      return Promise.resolve([]);
-    },
-    createColorStyle: (style: any) => {
-      console.log('🎭 Mock: createColorStyle', style);
-      return Promise.resolve(style);
-    },
-    notify: (message: string, options?: any) => {
-      console.log('🎭 Mock notification:', message, options);
-      // Show browser notification for development
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('Magic Styles', { body: message });
-      } else {
-        alert(`Magic Styles: ${message}`);
+  // Check for direct Framer API with error handling
+  try {
+    if ((window as any).framer) {
+      console.log('✅ Direct Framer API detected!', (window as any).framer);
+      return (window as any).framer;
+    }
+  } catch (error) {
+    console.log('⚠️ Error accessing direct framer API:', error);
+  }
+  
+  // Check for parent Framer API with proper error handling
+  try {
+    if (window.parent && window.parent !== window) {
+      const parentFramer = (window.parent as any).framer;
+      if (parentFramer) {
+        console.log('✅ Parent Framer API detected!', parentFramer);
+        return parentFramer;
       }
     }
-  };
+  } catch (error) {
+    console.log('⚠️ Cross-origin error accessing parent framer (expected in development):', error.message);
+  }
+  
+  // Check for Framer in top window
+  try {
+    if (window.top && window.top !== window) {
+      const topFramer = (window.top as any).framer;
+      if (topFramer) {
+        console.log('✅ Top window Framer API detected!', topFramer);
+        return topFramer;
+      }
+    }
+  } catch (error) {
+    console.log('⚠️ Cross-origin error accessing top framer (expected in development):', error.message);
+  }
+  
+  console.log('ℹ️ No Framer API found, using mock for development');
+  return createMockFramerAPI();
 };
+
+// Create mock Framer API for development
+const createMockFramerAPI = () => ({
+  showUI: (options: any) => {
+    console.log('🎭 Mock: showUI called', options);
+    return Promise.resolve();
+  },
+  getColorStyles: () => {
+    console.log('🎭 Mock: getColorStyles called');
+    return Promise.resolve([
+      { name: 'Primary', light: '#3b82f6', dark: '#60a5fa' },
+      { name: 'Secondary', light: '#6b7280', dark: '#9ca3af' }
+    ]);
+  },
+  createColorStyle: (style: any) => {
+    console.log('🎭 Mock: createColorStyle', style);
+    return Promise.resolve(style);
+  },
+  notify: (message: string, options?: any) => {
+    console.log('🎭 Mock notification:', message, options);
+    // Show console message for development
+    if (options?.variant === 'error') {
+      console.error('Magic Styles:', message);
+    } else {
+      console.info('Magic Styles:', message);
+    }
+  }
+});
 
 // Global error handler for debugging
 if (typeof window !== 'undefined') {
@@ -185,7 +219,7 @@ const MagicStyles = () => {
   const handleStylesScanned = useCallback((scannedTokens: ColorToken[]) => {
     setTokens(sortTokens(scannedTokens));
     setShowInitialChoice(false);
-    setActiveTab('edit'); // Auto-navigate to edit after scan
+    setActiveTab('edit');
   }, []);
 
   const handleStylesGenerated = useCallback((generatedTokens: ColorToken[]) => {
@@ -200,7 +234,6 @@ const MagicStyles = () => {
     setActiveTab('edit');
   }, []);
 
-  // Listen for custom events to navigate to edit mode
   useEffect(() => {
     const handleNavigateToEdit = () => {
       setActiveTab('edit');
@@ -208,7 +241,6 @@ const MagicStyles = () => {
 
     const handleGenerateTextSystem = () => {
       setActiveTab('generator');
-      // Set generator to text mode if needed
     };
 
     window.addEventListener('navigate-to-edit', handleNavigateToEdit);
@@ -238,7 +270,6 @@ const MagicStyles = () => {
     console.log('🎨 Applying styles to Framer...', { tokenCount: tokens.length });
 
     try {
-      // Get existing color styles
       const existingStyles = await framerAPI.getColorStyles();
       const existingStyleNames = new Set(existingStyles.map((s: any) => s.name));
       console.log('📋 Existing styles:', existingStyleNames);
@@ -246,7 +277,6 @@ const MagicStyles = () => {
       let createdCount = 0;
       let updatedCount = 0;
 
-      // Create new styles for tokens that don't exist
       for (const token of tokens) {
         const styleName = token.category ? `${token.category}/${token.name}` : token.name;
         
@@ -259,7 +289,6 @@ const MagicStyles = () => {
           });
           createdCount++;
         } else {
-          // Update existing style
           console.log('🔄 Updating existing style:', styleName);
           const existingStyle = existingStyles.find((s: any) => s.name === styleName);
           if (existingStyle && existingStyle.setAttributes) {
@@ -283,13 +312,11 @@ const MagicStyles = () => {
 
   const getTotalTokens = () => tokens.length;
   const getAccessibilityStats = () => {
-    // This would be calculated by the AccessibilityChecker component
     return { passed: Math.floor(tokens.length * 0.8), failed: Math.floor(tokens.length * 0.2) };
   };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
@@ -332,7 +359,6 @@ const MagicStyles = () => {
         </div>
       </header>
 
-      {/* Navigation */}
       {!showInitialChoice && (
         <nav className="border-b border-border bg-surface-elevated">
           <div className="container mx-auto px-6">
@@ -358,7 +384,6 @@ const MagicStyles = () => {
         </nav>
       )}
 
-      {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
         {showInitialChoice ? (
           <div className="space-y-8">
@@ -370,7 +395,6 @@ const MagicStyles = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-              {/* Scan Project Option */}
               <Card 
                 className="p-8 cursor-pointer transition-all hover:shadow-glow hover:border-primary/50 bg-surface-elevated"
                 onClick={() => {
@@ -393,7 +417,6 @@ const MagicStyles = () => {
                 </div>
               </Card>
 
-              {/* Generate New System Option */}
               <Card 
                 className="p-8 cursor-pointer transition-all hover:shadow-glow hover:border-primary/50 bg-surface-elevated"
                 onClick={() => {
