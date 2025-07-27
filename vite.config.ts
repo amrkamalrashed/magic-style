@@ -28,14 +28,11 @@ export default defineConfig(({ mode }) => ({
   build: {
     target: 'es2020',
     rollupOptions: {
-      input: {
-        plugin: 'src/plugin.ts',
-        main: 'index.html'
-      },
+      input: 'src/plugin.ts',
       output: {
         format: 'es',
         inlineDynamicImports: true,
-        entryFileNames: '[name].js',
+        entryFileNames: 'plugin.js',
         chunkFileNames: '[name].js',
         assetFileNames: '[name].[ext]'
       }
