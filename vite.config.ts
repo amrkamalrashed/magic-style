@@ -14,7 +14,24 @@ export default defineConfig(({ mode }) => ({
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Cross-Origin-Embedder-Policy": "cross-origin",
+      "Cross-Origin-Opener-Policy": "cross-origin"
     },
+    // Ensure the server is accessible from Framer
+    strictPort: true,
+    open: false
+  },
+  // Optimize for Framer plugin environment
+  define: {
+    global: 'globalThis',
+  },
+  build: {
+    // Ensure compatibility with Framer's plugin system
+    rollupOptions: {
+      output: {
+        format: 'es'
+      }
+    }
   },
   plugins: [
     react(),

@@ -8,13 +8,68 @@ import { StyleGenerator } from './StyleGenerator';
 import DesignSystemEditor from './DesignSystemEditor';
 import { StyleExporter } from './StyleExporter';
 
-// Mock Framer API for development/testing
-const mockFramer = {
-  showUI: (options: any) => console.log('Mock: showUI called', options),
-  getColorStyles: () => Promise.resolve([]),
-  createColorStyle: (style: any) => Promise.resolve(console.log('Mock: createColorStyle', style)),
-  notify: (message: string, options?: any) => console.log('Mock notification:', message, options)
+// Declare Framer API types for TypeScript
+declare global {
+  interface Window {
+    framer?: any;
+  }
+}
+
+// Enhanced Framer API detection and debugging
+const getFramerAPI = () => {
+  console.log('🔍 Checking for Framer environment...');
+  
+  if (typeof window !== 'undefined') {
+    console.log('🌐 Window object exists');
+    
+    // Check for Framer API
+    if ((window as any).framer) {
+      console.log('✅ Framer API detected!', (window as any).framer);
+      return (window as any).framer;
+    }
+    
+    // Check for alternative Framer globals
+    if ((window as any).parent?.framer) {
+      console.log('✅ Parent Framer API detected!', (window as any).parent.framer);
+      return (window as any).parent.framer;
+    }
+  }
+  
+  console.log('⚠️ No Framer API found, using mock');
+  
+  // Mock Framer API for development/testing
+  return {
+    showUI: (options: any) => console.log('🎭 Mock: showUI called', options),
+    getColorStyles: () => {
+      console.log('🎭 Mock: getColorStyles called');
+      return Promise.resolve([]);
+    },
+    createColorStyle: (style: any) => {
+      console.log('🎭 Mock: createColorStyle', style);
+      return Promise.resolve(style);
+    },
+    notify: (message: string, options?: any) => {
+      console.log('🎭 Mock notification:', message, options);
+      // Show browser notification for development
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Magic Styles', { body: message });
+      } else {
+        alert(`Magic Styles: ${message}`);
+      }
+    }
+  };
 };
+
+// Global error handler for debugging
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (event) => {
+    console.error('🚨 Global error:', event.error);
+  });
+  
+  window.addEventListener('unhandledrejection', (event) => {
+    console.error('🚨 Unhandled promise rejection:', event.reason);
+  });
+}
 
 export interface ColorToken {
   name: string;
@@ -63,33 +118,40 @@ const MagicStyles = () => {
   const [showInitialChoice, setShowInitialChoice] = useState(true);
 
   useEffect(() => {
-    // Check if running in Framer environment
-    const isFramerEnvironment = typeof window !== 'undefined' && (window as any).framer;
+    console.log('🚀 MagicStyles initializing...');
     
-    if (isFramerEnvironment) {
-      // Real Framer plugin initialization
-      const framer = (window as any).framer;
-      framer.showUI({
+    const framerAPI = getFramerAPI();
+    
+    try {
+      // Initialize Framer UI
+      framerAPI.showUI({
         position: 'center',
         width: 400,
-        height: 600
+        height: 600,
+        resizable: true
       });
-      loadFramerStyles(framer);
-    } else {
-      // Development mode - use mock
-      mockFramer.showUI({
-        position: 'center',
-        width: 400,
-        height: 600
-      });
+      
+      console.log('✅ Framer UI initialized');
+      
+      // Load existing styles
+      loadFramerStyles(framerAPI);
+      
+    } catch (error) {
+      console.error('❌ Failed to initialize Framer UI:', error);
     }
     
     setIsFramerReady(true);
+    console.log('✅ MagicStyles ready');
   }, []);
 
-  const loadFramerStyles = async (framerAPI: any = mockFramer) => {
+  const loadFramerStyles = async (framerAPI: any = null) => {
+    const api = framerAPI || getFramerAPI();
+    
     try {
-      const colorStyles = await framerAPI.getColorStyles();
+      console.log('📥 Loading Framer styles...');
+      const colorStyles = await api.getColorStyles();
+      console.log('🎨 Loaded color styles:', colorStyles);
+      
       const framerTokens: ColorToken[] = colorStyles.map((style: any) => ({
         name: style.name,
         light: style.light || '#ffffff',
@@ -98,11 +160,15 @@ const MagicStyles = () => {
       }));
       
       if (framerTokens.length > 0) {
+        console.log(`✅ Loaded ${framerTokens.length} tokens`);
         setTokens(framerTokens);
         setActiveTab('edit');
+        setShowInitialChoice(false);
+      } else {
+        console.log('ℹ️ No existing color styles found');
       }
     } catch (error) {
-      console.error('Failed to load Framer styles:', error);
+      console.error('❌ Failed to load Framer styles:', error);
     }
   };
 
@@ -163,42 +229,54 @@ const MagicStyles = () => {
   }, []);
 
   const applyStylesToFramer = async () => {
-    if (!isFramerReady || tokens.length === 0) return;
+    if (!isFramerReady || tokens.length === 0) {
+      console.log('⚠️ Cannot apply styles: not ready or no tokens');
+      return;
+    }
 
-    // Check if running in Framer environment
-    const isFramerEnvironment = typeof window !== 'undefined' && (window as any).framer;
-    const framerAPI = isFramerEnvironment ? (window as any).framer : mockFramer;
+    const framerAPI = getFramerAPI();
+    console.log('🎨 Applying styles to Framer...', { tokenCount: tokens.length });
 
     try {
       // Get existing color styles
       const existingStyles = await framerAPI.getColorStyles();
       const existingStyleNames = new Set(existingStyles.map((s: any) => s.name));
+      console.log('📋 Existing styles:', existingStyleNames);
+
+      let createdCount = 0;
+      let updatedCount = 0;
 
       // Create new styles for tokens that don't exist
       for (const token of tokens) {
         const styleName = token.category ? `${token.category}/${token.name}` : token.name;
         
         if (!existingStyleNames.has(styleName)) {
+          console.log('➕ Creating new style:', styleName);
           await framerAPI.createColorStyle({
             name: styleName,
             light: token.light,
             dark: token.dark
           });
+          createdCount++;
         } else {
           // Update existing style
+          console.log('🔄 Updating existing style:', styleName);
           const existingStyle = existingStyles.find((s: any) => s.name === styleName);
           if (existingStyle && existingStyle.setAttributes) {
             await existingStyle.setAttributes({
               light: token.light,
               dark: token.dark
             });
+            updatedCount++;
           }
         }
       }
 
-      framerAPI.notify('✨ Successfully applied styles to Framer project!', { variant: 'success' });
+      const message = `✨ Applied ${tokens.length} styles (${createdCount} new, ${updatedCount} updated)`;
+      console.log('✅', message);
+      framerAPI.notify(message, { variant: 'success' });
     } catch (error) {
-      console.error('Failed to apply styles:', error);
+      console.error('❌ Failed to apply styles:', error);
       framerAPI.notify('Failed to apply styles to Framer', { variant: 'error' });
     }
   };
