@@ -27,11 +27,15 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     // Ensure compatibility with Framer's plugin system
+    target: 'es2020',
     rollupOptions: {
       output: {
-        format: 'es'
+        format: 'es',
+        inlineDynamicImports: true
       }
-    }
+    },
+    outDir: 'dist',
+    assetsDir: 'assets'
   },
   plugins: [
     react(),
