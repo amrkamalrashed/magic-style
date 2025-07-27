@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Scan, Download, Palette, Eye, EyeOff, Zap, Sparkles, Plus } from 'lucide-react';
+import { Scan, Download, Palette, Eye, EyeOff, Zap, Sparkles, Plus, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,13 +15,13 @@ declare global {
   }
 }
 
-// Enhanced Framer API detection with proper error handling
+// Enhanced Framer API detection - only returns real API
 const getFramerAPI = () => {
   console.log('🔍 Checking for Framer environment...');
   
   if (typeof window === 'undefined') {
-    console.log('⚠️ No window object, using mock');
-    return createMockFramerAPI();
+    console.log('⚠️ No window object - not in browser');
+    return null;
   }
   
   console.log('🌐 Window object exists');
@@ -62,37 +62,10 @@ const getFramerAPI = () => {
     console.log('⚠️ Cross-origin error accessing top framer (expected in development):', error.message);
   }
   
-  console.log('ℹ️ No Framer API found, using mock for development');
-  return createMockFramerAPI();
+  console.log('ℹ️ No Framer API found - not in Framer environment');
+  return null;
 };
 
-// Create mock Framer API for development
-const createMockFramerAPI = () => ({
-  showUI: (options: any) => {
-    console.log('🎭 Mock: showUI called', options);
-    return Promise.resolve();
-  },
-  getColorStyles: () => {
-    console.log('🎭 Mock: getColorStyles called');
-    return Promise.resolve([
-      { name: 'Primary', light: '#3b82f6', dark: '#60a5fa' },
-      { name: 'Secondary', light: '#6b7280', dark: '#9ca3af' }
-    ]);
-  },
-  createColorStyle: (style: any) => {
-    console.log('🎭 Mock: createColorStyle', style);
-    return Promise.resolve(style);
-  },
-  notify: (message: string, options?: any) => {
-    console.log('🎭 Mock notification:', message, options);
-    // Show console message for development
-    if (options?.variant === 'error') {
-      console.error('Magic Styles:', message);
-    } else {
-      console.info('Magic Styles:', message);
-    }
-  }
-});
 
 // Global error handler for debugging
 if (typeof window !== 'undefined') {
@@ -156,30 +129,40 @@ const MagicStyles = () => {
     
     const framerAPI = getFramerAPI();
     
-    try {
-      // Initialize Framer UI
-      framerAPI.showUI({
-        position: 'center',
-        width: 400,
-        height: 600,
-        resizable: true
-      });
-      
-      console.log('✅ Framer UI initialized');
-      
-      // Load existing styles
-      loadFramerStyles(framerAPI);
-      
-    } catch (error) {
-      console.error('❌ Failed to initialize Framer UI:', error);
+    if (framerAPI) {
+      try {
+        // Initialize Framer UI
+        framerAPI.showUI({
+          position: 'center',
+          width: 400,
+          height: 600,
+          resizable: true
+        });
+        
+        console.log('✅ Framer UI initialized');
+        
+        // Load existing styles
+        loadFramerStyles(framerAPI);
+        
+        setIsFramerReady(true);
+        console.log('✅ MagicStyles ready in Framer environment');
+      } catch (error) {
+        console.error('❌ Failed to initialize Framer UI:', error);
+        setIsFramerReady(false);
+      }
+    } else {
+      console.log('⚠️ Not in Framer environment - plugin will show message');
+      setIsFramerReady(false);
     }
-    
-    setIsFramerReady(true);
-    console.log('✅ MagicStyles ready');
   }, []);
 
   const loadFramerStyles = async (framerAPI: any = null) => {
     const api = framerAPI || getFramerAPI();
+    
+    if (!api) {
+      console.log('⚠️ No Framer API available');
+      return;
+    }
     
     try {
       console.log('📥 Loading Framer styles...');
@@ -267,6 +250,11 @@ const MagicStyles = () => {
     }
 
     const framerAPI = getFramerAPI();
+    if (!framerAPI) {
+      console.error('❌ No Framer API available');
+      return;
+    }
+
     console.log('🎨 Applying styles to Framer...', { tokenCount: tokens.length });
 
     try {
@@ -314,6 +302,23 @@ const MagicStyles = () => {
   const getAccessibilityStats = () => {
     return { passed: Math.floor(tokens.length * 0.8), failed: Math.floor(tokens.length * 0.2) };
   };
+
+  // Show "not in Framer" message if not in Framer environment
+  if (!isFramerReady && !getFramerAPI()) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="p-8 max-w-md mx-auto text-center bg-surface-elevated">
+          <div className="w-16 h-16 rounded-full bg-warning/10 mx-auto mb-4 flex items-center justify-center">
+            <AlertTriangle className="w-8 h-8 text-warning" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground mb-2">Not in Framer Environment</h3>
+          <p className="text-text-muted">
+            This plugin only works within Framer. Please run it as a Framer plugin to access design system management features.
+          </p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

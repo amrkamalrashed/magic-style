@@ -26,15 +26,6 @@ interface ScanResult {
   issues: string[];
 }
 
-const mockFramer = {
-  getColorStyles: () => Promise.resolve([
-    { id: '1', name: 'Primary', light: '#6366f1', dark: '#818cf8', path: '/Brand/Primary' },
-    { id: '2', name: 'Secondary', light: '#8b5cf6', dark: '#a78bfa', path: '/Brand/Secondary' },
-    { id: '3', name: 'Text', light: '#1f2937', dark: '#f9fafb', path: '/Text/Body' },
-    { id: '4', name: 'Background', light: '#ffffff', dark: '#111827', path: '/Background/Base' }
-  ]),
-  getTextStyles: () => Promise.resolve([])
-};
 
 export const ProjectScanner: React.FC<ProjectScannerProps> = ({ 
   onStylesScanned, 
@@ -58,11 +49,21 @@ export const ProjectScanner: React.FC<ProjectScannerProps> = ({
   };
 
   const scanProject = useCallback(async () => {
+    if (!isFramerReady) {
+      console.log('⚠️ Framer not ready for scanning');
+      return;
+    }
+
     setIsScanning(true);
     
     try {
-      const isFramerEnvironment = typeof window !== 'undefined' && (window as any).framer;
-      const framerAPI = isFramerEnvironment ? (window as any).framer : mockFramer;
+      const framerAPI = typeof window !== 'undefined' && (window as any).framer;
+      
+      if (!framerAPI) {
+        console.error('❌ No Framer API available for scanning');
+        setIsScanning(false);
+        return;
+      }
       
       const [colorStyles, textStyles] = await Promise.all([
         framerAPI.getColorStyles(),
@@ -190,6 +191,20 @@ export const ProjectScanner: React.FC<ProjectScannerProps> = ({
       scanProject();
     }
   }, [isFramerReady, scanProject]);
+
+  if (!isFramerReady) {
+    return (
+      <div className="text-center py-12">
+        <Card className="p-8 max-w-md mx-auto bg-surface-elevated">
+          <AlertTriangle className="w-12 h-12 text-warning mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">Framer Not Available</h3>
+          <p className="text-text-muted">
+            Scanner requires Framer environment to access project styles.
+          </p>
+        </Card>
+      </div>
+    );
+  }
 
   if (!scanResult && !isScanning) {
     return (
