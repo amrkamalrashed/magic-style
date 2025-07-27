@@ -13,7 +13,11 @@
   "ui": {
     "width": 400,
     "height": 600,
-    "resizable": true
+    "resizable": true,
+    "minWidth": 300,
+    "minHeight": 400,
+    "maxWidth": 600,
+    "maxHeight": 800
   },
   "icon": "🎨"
 }

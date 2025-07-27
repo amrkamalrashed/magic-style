@@ -131,12 +131,16 @@ const MagicStyles = () => {
     
     if (framerAPI) {
       try {
-        // Initialize Framer UI
+        // Initialize Framer UI with proper configuration matching framer.json
         framerAPI.showUI({
           position: 'center',
           width: 400,
           height: 600,
-          resizable: true
+          resizable: true,
+          minWidth: 300,
+          minHeight: 400,
+          maxWidth: 600,
+          maxHeight: 800
         });
         
         console.log('✅ Framer UI initialized');
@@ -148,6 +152,7 @@ const MagicStyles = () => {
         console.log('✅ MagicStyles ready in Framer environment');
       } catch (error) {
         console.error('❌ Failed to initialize Framer UI:', error);
+        framerAPI.notify('Failed to initialize Magic Styles plugin', { variant: 'error' });
         setIsFramerReady(false);
       }
     } else {
